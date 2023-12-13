@@ -8,4 +8,6 @@ Grigoriev A, Haelermans C, Malagon J. _High dimensionality DEA_. 2023
 
     `pip install -r requirements.txt`
 
-2. Open and run `montecarlo_simulation.ipynb`
+2. Open and run 
+
+    `montecarlo_simulation.ipynb`
