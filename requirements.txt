@@ -4,6 +4,7 @@ matplotlib>=3.8.2
 mpl-tools>=0.4.0
 numpy>=1.25.2
 pandas>=2.1.4
+Pyfrontier
 seaborn>=0.13.0
 umap>=0.1.1
 umap-learn>=0.5.5
