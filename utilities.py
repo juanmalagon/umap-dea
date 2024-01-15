@@ -6,12 +6,9 @@ def generate_coefficients(
     N: int,
     M: int,
     alpha_1: float,
-    seed1: int,
-    seed2: int,
     verbose: bool = True
 ):
     # Generate alpha
-    np.random.seed(seed1)
     alpha_tilde = np.random.uniform(0, 1, size=N)
     alpha_tilde[0] = 0
     alpha = np.divide(alpha_tilde, np.sum(alpha_tilde))*(1-alpha_1)
@@ -23,7 +20,6 @@ def generate_coefficients(
         print(f"\n shape of alpha = {alpha.shape}")
 
     # Generate beta
-    np.random.seed(seed2)
     beta_tilde = np.random.uniform(0, 1, size=M)
     beta = np.divide(beta_tilde, np.sum(beta_tilde))
     if verbose:
@@ -38,10 +34,8 @@ def generate_coefficients(
 def generate_efficient_outputs(
     n: int,
     M: int,
-    seed3: int,
     verbose: bool = True
 ):
-    np.random.seed(seed3)
     y_tilde = np.random.uniform(0.1, 1, size=(n, M))
     if verbose:
         print("\n y_tilde:\n\n", y_tilde)
@@ -52,10 +46,8 @@ def generate_efficient_outputs(
 def generate_all_but_one_input(
     n: int,
     N: int,
-    seed4: int,
     verbose: bool = True
 ):
-    np.random.seed(seed4)
     x = np.random.uniform(0.1, 1, size=(n, N))
     x[:, 0] = 1
     if verbose:
@@ -100,11 +92,10 @@ def incorporate_inefficiency_factor(
     n: int,
     M: int,
     y_tilde: np.ndarray,
-    seed5: int,
+    sigma_u: float,
     verbose: bool = True
 ):
-    np.random.seed(seed5)
-    u = np.random.normal(0, 1, size=(n, M))
+    u = np.random.normal(0, sigma_u, size=(n, M))
     u = np.abs(u)
     y = y_tilde*np.exp(-u)
     if verbose:
@@ -120,32 +111,24 @@ def generate_data(
     N: int,
     M: int,
     alpha_1: float,
-    seed1: int,
-    seed2: int,
-    seed3: int,
-    seed4: int,
-    seed5: int,
     gamma: float,
+    sigma_u: float,
     verbose: bool = True
 ):
     alpha, beta = generate_coefficients(
         N=N,
         M=M,
         alpha_1=alpha_1,
-        seed1=seed1,
-        seed2=seed2,
         verbose=verbose
     )
     y_tilde = generate_efficient_outputs(
         n=n,
         M=M,
-        seed3=seed3,
         verbose=verbose
     )
     x_temp = generate_all_but_one_input(
         n=n,
         N=N,
-        seed4=seed4,
         verbose=verbose
     )
     x = generate_first_input(
@@ -162,7 +145,7 @@ def generate_data(
         n=n,
         M=M,
         y_tilde=y_tilde,
-        seed5=seed5,
+        sigma_u=sigma_u,
         verbose=verbose
     )
     return x, y
