@@ -105,7 +105,7 @@ def incorporate_inefficiency_factor(
     return y
 
 
-def generate_data(
+def generate_data_dict(
     n: int,
     N: int,
     M: int,
@@ -147,4 +147,10 @@ def generate_data(
         sigma_u=sigma_u,
         verbose=verbose
     )
-    return x, y
+    return {
+        "alpha": alpha,
+        "beta": beta,
+        "x": x,
+        "y": y,
+        "y_tilde": y_tilde
+    }
