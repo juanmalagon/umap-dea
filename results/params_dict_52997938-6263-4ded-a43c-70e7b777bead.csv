@@ -1,0 +1,2 @@
+N,M,n,alpha_1,gamma,sigma_u,rts,orientation,nr_simulations,seed
+100,1,100,0.25,1,0.5,crs,input,1000,42

@@ -1,7 +1,15 @@
 import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_absolute_error
-from scipy.stats import spearmanr, pearsonr, kendalltau
+# from sklearn.metrics import mean_absolute_error
+from scipy.stats import spearmanr, kendalltau  # , pearsonr
+
+
+def nan_mae(x, y):
+    return np.nanmean(np.abs(x - y))
+
+
+def nan_pearsonr(x, y):
+    return pd.DataFrame({'x': x, 'y': y}).dropna().corr().iloc[0, 1]
 
 
 def create_evaluation_df(
@@ -25,17 +33,13 @@ def create_evaluation_df(
     kendalltau_dict = {}
 
     for k, v in efficiency_scores_dict.items():
-        mae_dict[k] = mean_absolute_error(y_true=efficiency_score_by_design,
-                                          y_pred=v)
+        mae_dict[k] = nan_mae(efficiency_score_by_design, v)
         spearmanr_dict[k] = spearmanr(
-            a=efficiency_score_by_design, b=v
+            a=efficiency_score_by_design, b=v, nan_policy="omit"
         ).statistic  # type: ignore
-        pearsonr_dict[k] = pearsonr(
-            x=efficiency_score_by_design, y=v
-        ).statistic  # type: ignore
+        pearsonr_dict[k] = nan_pearsonr(efficiency_score_by_design, v)
         kendalltau_dict[k] = kendalltau(
-            x=efficiency_score_by_design,
-            y=v,
+            x=efficiency_score_by_design, y=v, nan_policy="omit"
         ).statistic
 
     mae_df = pd.DataFrame.from_dict(mae_dict, orient="index", columns=["mae"])
