@@ -5,10 +5,17 @@ from scipy.stats import spearmanr, kendalltau  # , pearsonr
 
 
 def nan_mae(x, y):
+    """
+    Calculate the mean absolute error between two arrays, ignoring NaNs.
+    """
     return np.nanmean(np.abs(x - y))
 
 
 def nan_pearsonr(x, y):
+    """
+    Calculate the Pearson correlation coefficient between two arrays, ignoring
+    NaNs.
+    """
     return pd.DataFrame({'x': x, 'y': y}).dropna().corr().iloc[0, 1]
 
 
@@ -31,6 +38,7 @@ def create_evaluation_df(
     spearmanr_dict = {}
     pearsonr_dict = {}
     kendalltau_dict = {}
+    nr_non_nan_dict = {}
 
     for k, v in efficiency_scores_dict.items():
         mae_dict[k] = nan_mae(efficiency_score_by_design, v)
@@ -41,6 +49,7 @@ def create_evaluation_df(
         kendalltau_dict[k] = kendalltau(
             x=efficiency_score_by_design, y=v, nan_policy="omit"
         ).statistic
+        nr_non_nan_dict[k] = len(v[~np.isnan(v)])
 
     mae_df = pd.DataFrame.from_dict(mae_dict, orient="index", columns=["mae"])
     spearmanr_df = pd.DataFrame.from_dict(
@@ -52,14 +61,21 @@ def create_evaluation_df(
     kendalltau_df = pd.DataFrame.from_dict(
         kendalltau_dict, orient="index", columns=["kendalltau"]
     )
+    nr_non_nan_df = pd.DataFrame.from_dict(
+        nr_non_nan_dict, orient="index", columns=["nr_non_nan"]
+    )
 
     dims_df = pd.DataFrame.from_dict(
         dims_for_embedding_dict, orient="index", columns=["dims"]
     )
 
     evaluation_df = pd.concat(
-        [dims_df, mae_df, spearmanr_df, pearsonr_df, kendalltau_df], axis=1
-    ).sort_values(by="dims", ascending=False)
+        [dims_df, mae_df, spearmanr_df, pearsonr_df, kendalltau_df,
+         nr_non_nan_df],
+        axis=1
+    )
+    evaluation_df = evaluation_df.reset_index(
+        ).rename(columns={'index': 'dim_reduction_level'})
     print("Evaluation dataframe created.")
 
     return evaluation_df
