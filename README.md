@@ -10,12 +10,7 @@ Grigoriev A, Haelermans C, Malagon J. _High dimensionality DEA_. 2023
 
 2. Open and run 
 
-    `montecarlo_simulation.ipynb`
+    `wrapper.ipynb`
 
-    to generate the simulated data an its dimensionality reduced representations
-
-3. On R 4.2.2+, open and run
-
-    `dea_for_mc_simulation.R`
-
-    to obtain the efficiency scores for each dataset
+    to generate the simulated data, its dimensionality reduced representations,
+    efficiency scores and evaluation metrics
