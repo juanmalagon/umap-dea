@@ -5,10 +5,8 @@ from uuid import uuid4
 from multiprocessing import Pool, cpu_count
 import traceback
 
-import data_generating_process as dgp
-import dimensionality_reduction as dr
-import calculate_dea as cdea
-import evaluate_results as er
+from src.config import SimulationConfig
+from src import dgp, dim_red, dea, eval
 
 
 def run_simulation(params_dict: dict) -> pd.DataFrame:
@@ -43,12 +41,12 @@ def run_simulation(params_dict: dict) -> pd.DataFrame:
     efficiency_score_by_design = (y/y_tilde).squeeze()
 
     # Dimensionality Reduction
-    embeddings = dr.create_embeddings(x=x, seed=seed, pca=pca)
+    embeddings = dim_red.create_embeddings(x=x, seed=seed, pca=pca)
     embeddings_df_dict = embeddings['embeddings_df_dict']
     dims_for_embedding_dict = embeddings['dims_for_embedding_dict']
 
     # Calculate DEA
-    efficiency_scores_dict = cdea.calculate_dea_for_embeddings(
+    efficiency_scores_dict = dea.calculate_dea_for_embeddings(
         embeddings_df_dict=embeddings_df_dict,
         y=y,
         rts=rts,
@@ -56,7 +54,7 @@ def run_simulation(params_dict: dict) -> pd.DataFrame:
     )
 
     # Evaluate Results
-    evaluation_df = er.create_evaluation_df(
+    evaluation_df = eval.create_evaluation_df(
         efficiency_scores_dict=efficiency_scores_dict,
         efficiency_score_by_design=efficiency_score_by_design,
         dims_for_embedding_dict=dims_for_embedding_dict,
