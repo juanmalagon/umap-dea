@@ -118,7 +118,7 @@ Metrics include:
 If you use this code or findings in your work, please cite:
 
 ```bibtex
-@article{anon2024umapdea,
+@article{malagon2025dimensionality,
   title={Dimensionality Reduction in Data Envelopment Analysis using Uniform Manifold Approximation and Projection},
   author={Malagon J, Grigoriev A, Haelermans C},
   year={2025}
