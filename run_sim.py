@@ -4,6 +4,8 @@ import numpy as np
 from uuid import uuid4
 from multiprocessing import Pool, cpu_count
 import traceback
+import json
+import argparse
 
 from src.config import SimulationConfig
 from src import dgp, dim_red, dea, eval
@@ -164,3 +166,31 @@ def wrapper_function(params_dict: dict, results_dir: str):
     export_results(evaluation_df_list, errors_list, params_dict, run_serial, results_dir)
 
     return None
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run Monte Carlo simulations for UMAP-DEA.")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config.json",
+        help="Path to the JSON configuration file (default: config.json)"
+    )
+    args = parser.parse_args()
+    
+    # Load configuration from JSON file
+    with open(args.config, 'r') as f:
+        config_dict = json.load(f)
+    
+    # Create SimulationConfig from loaded dict
+    config = SimulationConfig(**config_dict)
+    
+    # Convert config to dict for wrapper_function
+    params_dict = config.__dict__
+    
+    # Set up results directory
+    results_dir = 'results'
+    os.makedirs(results_dir, exist_ok=True)
+    
+    # Run the simulations
+    wrapper_function(params_dict, results_dir)

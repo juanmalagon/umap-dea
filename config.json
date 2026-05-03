@@ -1,0 +1,13 @@
+{
+    "N": 200,
+    "M": 1,
+    "n": 200,
+    "alpha_1": 0.25,
+    "gamma": 1.0,
+    "sigma_u": 0.1,
+    "rts": "crs",
+    "orientation": "input",
+    "nr_simulations": 1000,
+    "seed": 42,
+    "pca": false
+}

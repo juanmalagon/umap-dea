@@ -8,6 +8,7 @@ This repository contains the code and resources for the paper **"Dimensionality 
 
 ```
 .
+├── config.json            # JSON configuration file for simulations
 ├── src/
 │   ├── config.py          # Simulation configuration dataclass
 │   ├── dgp.py             # Data Generating Process (DGP) for production data
@@ -33,29 +34,31 @@ pip install -r requirements.txt
 
 ### 2. Run a Simulation
 
-Configure your simulation in `config.py` or modify `run_sim.py` directly. Example configuration:
+Configure your simulation parameters in `config.json` (an example is provided). The file should contain a JSON object with keys matching the `SimulationConfig` dataclass fields.
 
-```python
-config = SimulationConfig(
-    N=100,           # Number of inputs
-    M=1,             # Number of outputs
-    n=200,           # Number of DMUs
-    alpha_1=0.25,    # Fixed alpha_1 parameter
-    gamma=1.0,       # Convexity parameter
-    sigma_u=0.1,     # Inefficiency noise level
-    rts='crs',       # Returns to scale: 'crs' or 'vrs'
-    orientation='input',  # Orientation: 'input' or 'output'
-    nr_simulations=1000,  # Number of Monte Carlo replications
-    seed=42,         # Random seed
-    pca=False        # Use PCA instead of UMAP if True
-)
+Example `config.json`:
+```json
+{
+    "N": 100,
+    "M": 1,
+    "n": 200,
+    "alpha_1": 0.25,
+    "gamma": 1.0,
+    "sigma_u": 0.1,
+    "rts": "crs",
+    "orientation": "input",
+    "nr_simulations": 1000,
+    "seed": 42,
+    "pca": false
+}
 ```
 
 Run the simulation:
-
 ```bash
-python run_sim.py
+python run_sim.py --config config.json
 ```
+
+You can specify a different config file path with `--config <path>`. If omitted, it defaults to `config.json`.
 
 ---
 
