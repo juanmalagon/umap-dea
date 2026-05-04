@@ -62,8 +62,8 @@ def reduce_dims(
         warnings.filterwarnings(
             "ignore",
             message=(
-                "n_jobs value 1 overridden to 1 by setting random_state\. "
-                "Use no seed for parallelism\."
+                r"n_jobs value 1 overridden to 1 by setting random_state\. "
+                r"Use no seed for parallelism\."
             ),
             category=UserWarning,
         )
