@@ -15,6 +15,9 @@ class SimulationConfig:
     nr_simulations: int = 1000
     seed: int = 42
     pca: bool = False
+    umap_n_neighbors: int = 15
+    umap_min_dist: float = 0.1
+    umap_metric: str = 'euclidean'
 
     def validate(self):
         """Validate configuration parameters"""

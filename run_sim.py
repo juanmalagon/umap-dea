@@ -26,6 +26,9 @@ def run_simulation(params_dict: dict) -> pd.DataFrame:
     orientation = params_dict['orientation']
     seed = params_dict['seed']
     pca = params_dict['pca']
+    umap_n_neighbors = params_dict.get('umap_n_neighbors', 15)
+    umap_min_dist = params_dict.get('umap_min_dist', 0.1)
+    umap_metric = params_dict.get('umap_metric', 'euclidean')
 
     # Data Generating Process
     data_dict = dgp.generate_data_dict(
@@ -43,7 +46,10 @@ def run_simulation(params_dict: dict) -> pd.DataFrame:
     efficiency_score_by_design = (y/y_tilde).squeeze()
 
     # Dimensionality Reduction
-    embeddings = dim_red.create_embeddings(x=x, seed=seed, pca=pca)
+    embeddings = dim_red.create_embeddings(x=x, seed=seed, pca=pca, 
+                                          umap_n_neighbors=umap_n_neighbors,
+                                          umap_min_dist=umap_min_dist,
+                                          umap_metric=umap_metric)
     embeddings_df_dict = embeddings['embeddings_df_dict']
     dims_for_embedding_dict = embeddings['dims_for_embedding_dict']
 
@@ -142,6 +148,9 @@ def wrapper_function(params_dict: dict, results_dir: str):
     print(f'Orientation: {params_dict["orientation"]}')
     print(f'Seed: {params_dict["seed"]}')
     print(f'PCA enabled: {params_dict["pca"]}')
+    print(f'UMAP n_neighbors: {params_dict.get("umap_n_neighbors", 15)}')
+    print(f'UMAP min_dist: {params_dict.get("umap_min_dist", 0.1)}')
+    print(f'UMAP metric: {params_dict.get("umap_metric", "euclidean")}')
     print(f'Number of available CPUs: {cpu_count()}')
     print(f'Number of simulations: {params_dict["nr_simulations"]}')
 

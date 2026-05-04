@@ -9,5 +9,8 @@
     "orientation": "input",
     "nr_simulations": 1000,
     "seed": 42,
-    "pca": false
+    "pca": false,
+    "umap_n_neighbors": 15,
+    "umap_min_dist": 0.1,
+    "umap_metric": "euclidean"
 }

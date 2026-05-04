@@ -105,9 +105,26 @@ def reduce_dimensions_with_pca(X: np.ndarray, d: int, random_state: int = None, 
     return X_reduced
 
 
-def create_embeddings(x: np.ndarray, seed: int = 42, pca=False) -> dict:
+def create_embeddings(x: np.ndarray, seed: int = 42, pca=False, 
+                     umap_n_neighbors: int = 15, umap_min_dist: float = 0.1, 
+                     umap_metric: str = 'euclidean') -> dict:
     """
     Creates embeddings with different dimensions.
+    
+    Parameters:
+    -----------
+    x : np.ndarray
+        Input data array
+    seed : int
+        Random seed for reproducibility
+    pca : bool
+        Whether to use PCA (True) or UMAP (False) for dimensionality reduction
+    umap_n_neighbors : int
+        UMAP n_neighbors parameter (default: 15)
+    umap_min_dist : float
+        UMAP min_dist parameter (default: 0.1)
+    umap_metric : str
+        UMAP metric parameter (default: 'euclidean')
     """
     print(f"Original shape: {x.shape}")
     dims_for_embedding_dict = get_dims_for_embedding(x)
@@ -120,9 +137,11 @@ def create_embeddings(x: np.ndarray, seed: int = 42, pca=False) -> dict:
             embeddings_df_dict[k] = reduce_dimensions_with_pca(x, d=v, random_state=seed, verbose=False)
     else:
         print("Using UMAP for dimensionality reduction")
+        print(f"UMAP parameters: n_neighbors={umap_n_neighbors}, min_dist={umap_min_dist}, metric={umap_metric}")
         for k, v in dims_for_embedding_dict.items():
             print(f"Creating embedding with {v} dimensions ({k})")
-            embeddings_df_dict[k] = reduce_dims(x, n_components=v, seed=seed)
+            embeddings_df_dict[k] = reduce_dims(x, n_components=v, n_neighbors=umap_n_neighbors, 
+                                                min_dist=umap_min_dist, metric=umap_metric, seed=seed)
     # Adding the original array to the dictionary
     dims_for_embedding_dict["original"] = x.shape[1]
     embeddings_df_dict["original"] = x
