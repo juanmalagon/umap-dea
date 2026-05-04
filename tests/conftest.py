@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from src.config import SimulationConfig
+from umap_dea.config import SimulationConfig
 
 
 @pytest.fixture(scope="session")

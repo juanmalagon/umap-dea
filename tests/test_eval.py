@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-from src import eval
+from umap_dea import eval
 
 
 class TestNanMAE:
@@ -74,7 +74,6 @@ class TestCreateEvaluationDF:
 
     def test_evaluation_df_structure(self, efficiency_scores):
         """Test that evaluation dataframe has expected structure."""
-        n = 50
         efficiency_scores_dict = {
             "embedding1": efficiency_scores,
             "embedding2": efficiency_scores * 0.95,
@@ -89,7 +88,8 @@ class TestCreateEvaluationDF:
         )
 
         assert isinstance(eval_df, pd.DataFrame)
-        assert len(eval_df) == 2  # One row per embedding
+        assert len(eval_df) == len(dims_for_embedding_dict)
+        assert set(eval_df["dim_reduction_level"]) == set(dims_for_embedding_dict)
 
     def test_evaluation_df_columns(self, efficiency_scores):
         """Test that evaluation dataframe has expected columns."""
@@ -107,9 +107,8 @@ class TestCreateEvaluationDF:
         )
 
         expected_columns = {
-            "embedding_name",
-            "dims",
             "dim_reduction_level",
+            "dims",
             "mae",
             "spearmanr",
             "pearsonr",

@@ -1,184 +1,274 @@
-# Development Setup Guide
+# Development Guide
 
-This guide explains how to set up the development environment for UMAP-DEA using pyenv and a virtual environment.
+This document is for contributors and maintainers of UMAP-DEA. It focuses on local setup, project structure, development workflow, and repository-specific behavior.
 
-## Prerequisites
+For end-user instructions, see [README.md](README.md).
 
-Ensure you have pyenv installed:
+## Development goals
 
-```bash
-# macOS (with Homebrew)
-brew install pyenv
+The repository currently serves two related purposes:
+- reproducible simulation runs from command-line scripts,
+- exploration and validation through tests and notebooks.
 
-# Linux
-curl https://pyenv.run | bash
+When making changes, keep both in mind:
+- command-line workflows should remain simple,
+- tests should reflect the implemented behavior,
+- notebooks may lag behind the main code and should not be treated as the source of truth.
 
-# Add to your shell profile (~/.bashrc, ~/.zshrc, etc.)
-export PATH="$HOME/.pyenv/bin:$PATH"
-eval "$(pyenv init -)"
-eval "$(pyenv virtualenv-init -)"
-```
+## Environment setup
 
-## Setup Steps
+### Python version
 
-### 1. Install the correct Python version
+The repository includes [.python-version](.python-version) and currently targets Python `3.12.0` for local development.
 
-The project specifies Python 3.12.0 in `.python-version`. Install it via pyenv:
+The package metadata in [pyproject.toml](pyproject.toml) declares `>=3.9`, but if you want to match the maintained local workflow exactly, use Python `3.12.0`.
 
-```bash
-pyenv install 3.12.0
-```
+### Recommended setup: `pyenv` + virtualenv
 
-### 2. Create a virtual environment
+If you use `pyenv`, the repository includes [setup_dev.sh](setup_dev.sh), which:
+- checks for `pyenv`,
+- installs the configured Python version if needed,
+- creates a `pyenv` virtual environment named `umap-dea`,
+- sets it as the local environment.
 
-Navigate to the project directory (pyenv will auto-detect `.python-version`):
-
-```bash
-cd /home/your-user/repos/umap-dea
-
-# Create a virtualenv specifically for this project
-pyenv virtualenv 3.12.0 umap-dea
-```
-
-### 3. Activate the virtual environment
+Typical flow:
 
 ```bash
-# Auto-activate when entering directory (if you have pyenv-virtualenv)
-pyenv local umap-dea
-
-# Or manually activate
-pyenv activate umap-dea
-```
-
-### 4. Install dependencies
-
-The project uses `pyproject.toml` for dependency management:
-
-```bash
-# Install main dependencies + dev dependencies
+bash setup_dev.sh
 pip install -e ".[dev]"
+```
 
-# Or just main dependencies (without dev tools)
-pip install -e .
+Optional notebook dependencies:
 
-# Or with Jupyter support too
+```bash
 pip install -e ".[dev,jupyter]"
 ```
 
-### 5. Verify installation
+### Alternative setup: standard `venv`
+
+If you do not use `pyenv`:
 
 ```bash
-# Check that pytest is available
-pytest --version
-
-# Run the test suite
-pytest
-
-# Run with coverage
-pytest --cov=src --cov-report=html
+python -m venv .venv
 ```
 
-## Alternative: Using Standard venv (if you prefer)
-
-If you prefer the standard Python venv approach instead of pyenv-virtualenv:
+Activate it:
 
 ```bash
-# Create a standard virtual environment
-python -m venv .venv
+# Linux/macOS
+source .venv/bin/activate
 
-# Activate it
-source .venv/bin/activate  # Linux/macOS
-# or
-.venv\Scripts\activate     # Windows
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
 
-# Install dependencies
+Then install dependencies:
+
+```bash
 pip install -e ".[dev]"
 ```
 
-**Note**: With standard venv, you'll need to manually activate/deactivate environments and won't get automatic activation when entering directories.
+## Dependency sources
 
-## Common Commands
+There are two dependency definitions in this repository:
+
+- [pyproject.toml](pyproject.toml): canonical package metadata and optional extras
+- [requirements.txt](requirements.txt): simpler dependency list used in some environments
+
+For development work, prefer [pyproject.toml](pyproject.toml).
+
+Available optional dependency groups:
+- `dev`: pytest, coverage, formatting, linting, mypy
+- `jupyter`: notebook tooling
+
+Examples:
 
 ```bash
-# Activate the environment
-pyenv activate umap-dea
-
-# Deactivate the environment
-pyenv deactivate
-
-# List all virtual environments
-pyenv virtualenvs
-
-# Delete the virtual environment
-pyenv virtualenv-delete umap-dea
-
-# Run tests
-pytest -v
-
-# Format code with black
-black src tests
-
-# Sort imports with isort
-isort src tests
-
-# Run linting
-flake8 src tests
-
-# Type checking with mypy
-mypy src
+pip install -e .
+pip install -e ".[dev]"
+pip install -e ".[dev,jupyter]"
 ```
 
-## Project Structure
+## Running the project
 
-```
-pyproject.toml          # Project metadata and dependencies
-.python-version         # Python version (3.12.0)
-requirements.txt        # Legacy requirements (can be ignored if using pyproject.toml)
-src/                    # Source code
-tests/                  # Unit tests
-```
+### Main simulation entry point
 
-## Dependency Groups
+Use [run_sim.py](run_sim.py) to execute a simulation batch from a JSON configuration:
 
-The project has three dependency groups:
-
-1. **Core** — Main dependencies for running simulations
-2. **dev** — Development tools (pytest, black, isort, flake8, mypy)
-3. **jupyter** — Jupyter notebook support
-
-Install subsets with:
 ```bash
-pip install -e .              # Core only
-pip install -e ".[dev]"       # Core + dev
-pip install -e ".[jupyter]"   # Core + jupyter
-pip install -e ".[dev,jupyter]"  # All
+python run_sim.py --config config.json
 ```
 
-## Troubleshooting
+### Grid search
 
-### pyenv not found
-Make sure you've added pyenv to your PATH in your shell profile.
+Use [run_grid_search.py](run_grid_search.py) to iterate over parameter combinations and launch repeated simulation runs.
 
-### "pyenv: command not found"
-Restart your terminal or run:
+### Configuration model
+
+The main configuration dataclass lives in [umap_dea/config.py](umap_dea/config.py).
+
+Current fields include:
+- `N`, `M`, `n`
+- `alpha_1`, `gamma`, `sigma_u`
+- `rts`, `orientation`
+- `nr_simulations`, `seed`, `pca`
+- `umap_n_neighbors`, `umap_min_dist`, `umap_metric`
+
+Validation currently checks and resolves:
+- `alpha_1` is a `float` or the string `"1/N"`
+- `rts` is `crs` or `vrs`
+- `orientation` is `input` or `output`
+
+## Project architecture
+
+### [umap_dea/dgp.py](umap_dea/dgp.py)
+
+Implements the data-generating process.
+
+Key responsibilities:
+- generate normalized production coefficients,
+- generate efficient outputs,
+- generate inputs,
+- inject inefficiency into observed outputs.
+
+### [umap_dea/dim_red.py](umap_dea/dim_red.py)
+
+Handles dimensionality reduction.
+
+Important behavior:
+- supports both UMAP and PCA,
+- creates multiple embeddings for several target dimensions,
+- always adds an `original` representation alongside reduced embeddings,
+- shifts embeddings to non-negative values when needed.
+
+The inclusion of `original` matters downstream because evaluation and summary outputs include it as a baseline.
+
+### [umap_dea/dea.py](umap_dea/dea.py)
+
+Wraps `dealib.dea.dea()` and computes efficiency scores for each embedding.
+
+Important behavior:
+- accepts `crs` and `vrs`,
+- accepts `input` and `output` orientation,
+- returns the library's score convention directly.
+
+Do not assume input- and output-oriented scores share the same scale semantics.
+
+### [umap_dea/eval.py](umap_dea/eval.py)
+
+Builds the evaluation dataframe and computes:
+- MAE
+- Spearman correlation
+- Pearson correlation
+- Kendall's tau
+- number of non-NaN observations
+
+Current behavior to be aware of:
+- the evaluation dataframe is built from `dims_for_embedding_dict`,
+- rows may therefore include the `original` baseline,
+- `dim_reduction_level` is the naming column used in exports and summaries.
+
+### [run_sim.py](run_sim.py)
+
+Coordinates the full workflow:
+- data generation,
+- dimensionality reduction,
+- DEA,
+- evaluation,
+- CSV export,
+- multiprocessing across simulation iterations.
+
+The script also creates a `results/` directory on demand.
+
+## Tests
+
+Run tests with:
+
 ```bash
-eval "$(pyenv init -)"
+pytest
 ```
 
-### Virtual environment not activating
-Use `pyenv local umap-dea` in the project directory to auto-activate, or:
+Or with coverage:
+
 ```bash
-pyenv activate umap-dea
+pytest --cov=umap_dea --cov-report=html --cov-report=term
 ```
 
-### Pip install fails
-Ensure the virtual environment is active:
+Important: the active pytest configuration is [pytest.ini](pytest.ini). Even though [pyproject.toml](pyproject.toml) also contains pytest settings, pytest currently reports that it is using [pytest.ini](pytest.ini).
+
+### Testing philosophy
+
+Prefer basic, behavior-focused tests.
+
+Good tests in this repository usually:
+- verify shapes, keys, and allowed ranges,
+- check simple invariants,
+- avoid over-specifying implementation details,
+- follow the actual semantics of third-party libraries rather than forcing alternate conventions.
+
+Be especially careful with DEA orientation semantics and with the `original` embedding baseline included by [umap_dea/dim_red.py](umap_dea/dim_red.py).
+
+## Formatting and linting
+
+Common commands:
+
 ```bash
-which python  # Should point to ~/.pyenv/versions/...
+black umap_dea tests
+isort umap_dea tests
+flake8 umap_dea tests
+mypy umap_dea
 ```
 
-## Next Steps
+If you use the [Makefile](Makefile), available targets include:
+- `make install`
+- `make install-dev`
+- `make install-jupyter`
+- `make test`
+- `make test-cov`
+- `make lint`
+- `make format`
+- `make mypy`
 
-- Run tests: `pytest`
-- Run grid search: `python run_grid_search.py`
-- Start Jupyter: `jupyter notebook`
+Note: some `Makefile` targets use Unix shell commands and may need adjustment on Windows.
+
+## Working with notebooks
+
+The notebooks in [experiments/](experiments) are useful for exploration, but they may not always be synchronized with the latest implementation.
+
+Before relying on notebook logic:
+- verify the equivalent code in [umap_dea/](umap_dea),
+- confirm assumptions against tests,
+- prefer script-based workflows for reproducible runs.
+
+## Common pitfalls
+
+### 1. Confusing pytest config sources
+
+Use [pytest.ini](pytest.ini) as the source of truth for test execution behavior.
+
+### 2. Assuming all evaluation rows are reduced embeddings
+
+They are not. The `original` baseline is intentionally included in the embedding pipeline.
+
+### 3. Assuming output-oriented DEA scores must match input-oriented scaling
+
+They do not necessarily. The wrapper currently preserves `dealib` semantics.
+
+### 4. Treating notebooks as authoritative
+
+The main implementation lives in [umap_dea/](umap_dea) and the root-level runner scripts.
+
+## Suggested workflow for contributors
+
+1. Create or activate the environment.
+2. Install `.[dev]` or `.[dev,jupyter]`.
+3. Make focused changes.
+4. Run tests.
+5. Run formatting and lint checks if relevant.
+6. Update documentation when behavior or workflow changes.
+
+## When updating documentation
+
+Use this rule of thumb:
+- [README.md](README.md): explain what the project is, how to install it, how to run it, and what outputs to expect.
+- [DEVELOPMENT.md](DEVELOPMENT.md): explain how to work on the codebase, validate changes, and avoid repository-specific pitfalls.

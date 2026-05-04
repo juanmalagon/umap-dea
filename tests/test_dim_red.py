@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from src import dim_red
+from umap_dea import dim_red
 
 
 class TestGetDimsForEmbedding:

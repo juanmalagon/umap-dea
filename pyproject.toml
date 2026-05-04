@@ -6,10 +6,24 @@ build-backend = "setuptools.build_meta"
 name = "umap-dea"
 version = "0.1.0"
 description = "UMAP-based Dimensionality Reduction for Data Envelopment Analysis"
-readme = "README.md"
-license = {text = "LICENSE"}
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
 authors = [
     {name = "Juan Malagon", email = "juanmalagon@gmail.com"},
+]
+keywords = ["dea", "umap", "pca", "efficiency-analysis", "simulation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 requires-python = ">=3.9"
 dependencies = [
@@ -44,9 +58,10 @@ jupyter = [
 Homepage = "https://github.com/juanmalagon/umap-dea"
 Repository = "https://github.com/juanmalagon/umap-dea.git"
 Documentation = "https://github.com/juanmalagon/umap-dea/wiki"
+Issues = "https://github.com/juanmalagon/umap-dea/issues"
 
-[tool.setuptools]
-packages = ["src"]
+[tool.setuptools.packages.find]
+include = ["umap_dea*"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

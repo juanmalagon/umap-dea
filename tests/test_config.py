@@ -1,5 +1,5 @@
 import pytest
-from src.config import SimulationConfig
+from umap_dea.config import SimulationConfig
 
 
 class TestSimulationConfigCreation:
@@ -46,7 +46,7 @@ class TestSimulationConfigCreation:
         assert 0 <= valid_config.alpha_1 <= 1
 
     def test_alpha_1_as_string(self):
-        """Test alpha_1 as string '1/N'."""
+        """Test alpha_1 as string '1/N' resolves to a float."""
         config = SimulationConfig(
             N=10,
             M=1,
@@ -55,7 +55,8 @@ class TestSimulationConfigCreation:
             gamma=1.0,
             sigma_u=0.1,
         )
-        assert config.alpha_1 == "1/N"
+        assert isinstance(config.alpha_1, float)
+        assert config.alpha_1 == pytest.approx(0.1)
 
 
 class TestSimulationConfigValidation:
@@ -64,7 +65,7 @@ class TestSimulationConfigValidation:
     def test_invalid_alpha_1_type(self):
         """Test that invalid alpha_1 type raises TypeError."""
         with pytest.raises(TypeError, match="alpha_1 must be float or string"):
-            config = SimulationConfig(
+            SimulationConfig(
                 N=10,
                 M=1,
                 n=50,
@@ -72,12 +73,23 @@ class TestSimulationConfigValidation:
                 gamma=1.0,
                 sigma_u=0.1,
             )
-            config.validate()
+
+    def test_invalid_alpha_1_string(self):
+        """Test that invalid alpha_1 string raises ValueError."""
+        with pytest.raises(ValueError, match="alpha_1 string value must be '1/N'"):
+            SimulationConfig(
+                N=10,
+                M=1,
+                n=50,
+                alpha_1="invalid",
+                gamma=1.0,
+                sigma_u=0.1,
+            )
 
     def test_invalid_rts(self):
         """Test that invalid rts value raises ValueError."""
         with pytest.raises(ValueError, match="rts must be 'crs' or 'vrs'"):
-            config = SimulationConfig(
+            SimulationConfig(
                 N=10,
                 M=1,
                 n=50,
@@ -86,12 +98,11 @@ class TestSimulationConfigValidation:
                 sigma_u=0.1,
                 rts="invalid",
             )
-            config.validate()
 
     def test_invalid_orientation(self):
         """Test that invalid orientation raises ValueError."""
         with pytest.raises(ValueError, match="orientation must be 'input' or 'output'"):
-            config = SimulationConfig(
+            SimulationConfig(
                 N=10,
                 M=1,
                 n=50,
@@ -100,7 +111,6 @@ class TestSimulationConfigValidation:
                 sigma_u=0.1,
                 orientation="invalid",
             )
-            config.validate()
 
     def test_valid_vrs(self):
         """Test valid VRS configuration."""
