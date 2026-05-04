@@ -111,6 +111,11 @@ def run_simulation_wrapper(args):
     """
     params_dict, i = args
     try:
+        # Set unique seed for this iteration in the worker process
+        # This ensures reproducible but diverse data across iterations
+        iteration_seed = params_dict['seed'] + i
+        np.random.seed(iteration_seed)
+        
         evaluation_df = run_simulation(params_dict)
         evaluation_df['iteration'] = i
         return {'evaluation_df': evaluation_df, 'error': None, 'iteration': i}
