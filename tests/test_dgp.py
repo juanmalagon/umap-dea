@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from src import dgp
+from umap_dea import dgp
 
 
 class TestGenerateCoefficients:

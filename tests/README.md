@@ -4,7 +4,7 @@ This directory contains comprehensive unit tests for the UMAP-DEA project.
 
 ## Test Structure
 
-Tests are organized by module, mirroring the structure of the `src/` directory:
+Tests are organized by module, mirroring the structure of the `umap_dea/` package:
 
 - **test_config.py** — Tests for configuration validation and parameter handling
 - **test_dim_red.py** — Tests for dimensionality reduction (UMAP, PCA, embedding creation)
@@ -22,7 +22,7 @@ pytest
 
 ### Run tests with coverage report:
 ```bash
-pytest --cov=src --cov-report=html
+pytest --cov=umap_dea --cov-report=html
 ```
 
 ### Run specific test file:

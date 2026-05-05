@@ -1,17 +1,26 @@
 import os
-import pandas as pd
-import numpy as np
-from uuid import uuid4
-from multiprocessing import Pool, cpu_count
-import traceback
-import json
 import argparse
+import json
+import logging
+from dataclasses import asdict
+from multiprocessing import Pool, cpu_count
+from typing import Any
+from uuid import uuid4
 
-from src.config import SimulationConfig
-from src import dgp, dim_red, dea, eval
+import numpy as np
+import pandas as pd
+
+from umap_dea.config import SimulationConfig
+from umap_dea import dgp, dim_red, dea, eval
 
 
-def run_simulation(params_dict: dict) -> pd.DataFrame:
+logger = logging.getLogger(__name__)
+
+ParamsDict = dict[str, Any]
+SimulationResult = dict[str, Any]
+
+
+def run_simulation(params_dict: ParamsDict) -> pd.DataFrame:
     """
     Run a single simulation.
     """
@@ -46,10 +55,14 @@ def run_simulation(params_dict: dict) -> pd.DataFrame:
     efficiency_score_by_design = (y/y_tilde).squeeze()
 
     # Dimensionality Reduction
-    embeddings = dim_red.create_embeddings(x=x, seed=seed, pca=pca, 
-                                          umap_n_neighbors=umap_n_neighbors,
-                                          umap_min_dist=umap_min_dist,
-                                          umap_metric=umap_metric)
+    embeddings = dim_red.create_embeddings(
+        x=x,
+        seed=seed,
+        pca=pca,
+        umap_n_neighbors=umap_n_neighbors,
+        umap_min_dist=umap_min_dist,
+        umap_metric=umap_metric,
+    )
     embeddings_df_dict = embeddings['embeddings_df_dict']
     dims_for_embedding_dict = embeddings['dims_for_embedding_dict']
 
@@ -73,7 +86,7 @@ def run_simulation(params_dict: dict) -> pd.DataFrame:
 
 def export_results(evaluation_df_list: list,
                    errors_list: list,
-                   params_dict: dict,
+                   params_dict: ParamsDict,
                    run_serial: str,
                    results_dir: str) -> None:
     """
@@ -98,20 +111,32 @@ def export_results(evaluation_df_list: list,
 
     # Save summary
     summary_df = evaluation_df.groupby(['dim_reduction_level', 'dims']).agg(
-        {'mae': ['mean', 'std'],
-         'spearmanr': ['mean', 'std'],
-         'pearsonr': ['mean', 'std'],
-         'kendalltau': ['mean', 'std']}).reset_index()
-    summary_df.columns = ['dim_reduction_level', 'dims', 'mae_mean', 'mae_std',
-                          'spearmanr_mean', 'spearmanr_std', 'pearsonr_mean',
-                          'pearsonr_std', 'kendalltau_mean', 'kendalltau_std']
+        {
+            'mae': ['mean', 'std'],
+            'spearmanr': ['mean', 'std'],
+            'pearsonr': ['mean', 'std'],
+            'kendalltau': ['mean', 'std'],
+        }
+    ).reset_index()
+    summary_df.columns = [
+        'dim_reduction_level',
+        'dims',
+        'mae_mean',
+        'mae_std',
+        'spearmanr_mean',
+        'spearmanr_std',
+        'pearsonr_mean',
+        'pearsonr_std',
+        'kendalltau_mean',
+        'kendalltau_std',
+    ]
     summary_df.sort_values(by=['dims', 'dim_reduction_level']).to_csv(
         os.path.join(results_dir, f'summary_df_{run_serial}.csv'), index=False)
 
     return None
 
 
-def run_simulation_wrapper(args):
+def run_simulation_wrapper(args: tuple[ParamsDict, int]) -> SimulationResult:
     """
     Wrapper function for run_simulation to handle exceptions in parallel processing.
     """
@@ -121,44 +146,46 @@ def run_simulation_wrapper(args):
         # This ensures reproducible but diverse data across iterations
         iteration_seed = params_dict['seed'] + i
         np.random.seed(iteration_seed)
-        
+
         evaluation_df = run_simulation(params_dict)
         evaluation_df['iteration'] = i
         return {'evaluation_df': evaluation_df, 'error': None, 'iteration': i}
     except Exception as e:
-        print(f'Error in iteration {i}: {str(e)}')
-        traceback.print_exc()
+        logger.exception('Error in iteration %s: %s', i, str(e))
         return {'evaluation_df': None, 'error': str(e), 'iteration': i}
 
 
-def wrapper_function(params_dict: dict, results_dir: str):
+def wrapper_function(params_dict: ParamsDict, results_dir: str) -> None:
     """
     Parallelized wrapper function to run the simulation study.
     """
     run_serial = str(uuid4())
 
-    print('INITIAL SETUP \n')
-    print(f'Number of inputs: {params_dict["N"]}')
-    print(f'Number of outputs: {params_dict["M"]}')
-    print(f'Number of DMUs: {params_dict["n"]}')
-    print(f'Parameter alpha_1: {params_dict["alpha_1"]}')
-    print(f'Parameter gamma: {params_dict["gamma"]}')
-    print(f'Parameter sigma_u: {params_dict["sigma_u"]}')
-    print(f'Return to scale: {params_dict["rts"]}')
-    print(f'Orientation: {params_dict["orientation"]}')
-    print(f'Seed: {params_dict["seed"]}')
-    print(f'PCA enabled: {params_dict["pca"]}')
-    print(f'UMAP n_neighbors: {params_dict.get("umap_n_neighbors", 15)}')
-    print(f'UMAP min_dist: {params_dict.get("umap_min_dist", 0.1)}')
-    print(f'UMAP metric: {params_dict.get("umap_metric", "euclidean")}')
-    print(f'Number of available CPUs: {cpu_count()}')
-    print(f'Number of simulations: {params_dict["nr_simulations"]}')
+    logger.info('INITIAL SETUP')
+    logger.info('Number of inputs: %s', params_dict["N"])
+    logger.info('Number of outputs: %s', params_dict["M"])
+    logger.info('Number of DMUs: %s', params_dict["n"])
+    logger.info('Parameter alpha_1: %s', params_dict["alpha_1"])
+    logger.info('Parameter gamma: %s', params_dict["gamma"])
+    logger.info('Parameter sigma_u: %s', params_dict["sigma_u"])
+    logger.info('Return to scale: %s', params_dict["rts"])
+    logger.info('Orientation: %s', params_dict["orientation"])
+    logger.info('Seed: %s', params_dict["seed"])
+    logger.info('PCA enabled: %s', params_dict["pca"])
+    logger.info('UMAP n_neighbors: %s', params_dict.get("umap_n_neighbors", 15))
+    logger.info('UMAP min_dist: %s', params_dict.get("umap_min_dist", 0.1))
+    logger.info('UMAP metric: %s', params_dict.get("umap_metric", "euclidean"))
+    logger.info('Number of available CPUs: %s', cpu_count())
+    logger.info('Number of simulations: %s', params_dict["nr_simulations"])
 
     # Set random seed for main process
     np.random.seed(params_dict['seed'])
 
     # Prepare arguments for parallel processing
-    args_list = [(params_dict.copy(), i) for i in range(params_dict['nr_simulations'])]
+    args_list = [
+        (params_dict.copy(), i)
+        for i in range(params_dict['nr_simulations'])
+    ]
 
     # Determine number of processes to use (leave one CPU free)
     n_processes = max(1, cpu_count() - 1)
@@ -166,7 +193,7 @@ def wrapper_function(params_dict: dict, results_dir: str):
     evaluation_df_list = []
     errors_list = []
 
-    print(f'Starting parallel processing with {n_processes} workers...')
+    logger.info('Starting parallel processing with %s workers...', n_processes)
     with Pool(processes=n_processes) as pool:
         results = pool.map(run_simulation_wrapper, args_list)
 
@@ -177,13 +204,20 @@ def wrapper_function(params_dict: dict, results_dir: str):
         else:
             errors_list.append(result['iteration'])
 
-    export_results(evaluation_df_list, errors_list, params_dict, run_serial, results_dir)
-
-    return None
+    export_results(
+        evaluation_df_list,
+        errors_list,
+        params_dict,
+        run_serial,
+        results_dir,
+    )
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run Monte Carlo simulations for UMAP-DEA.")
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+    parser = argparse.ArgumentParser(
+        description="Run Monte Carlo simulations for UMAP-DEA."
+    )
     parser.add_argument(
         "--config",
         type=str,
@@ -200,7 +234,7 @@ if __name__ == "__main__":
     config = SimulationConfig(**config_dict)
     
     # Convert config to dict for wrapper_function
-    params_dict = config.__dict__
+    params_dict = asdict(config)
     
     # Set up results directory
     results_dir = 'results'

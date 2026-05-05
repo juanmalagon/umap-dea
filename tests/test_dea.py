@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from dealib.dea import RTS, Orientation
-from src import dea
+from umap_dea import dea
 
 
 class TestCalculateDEAForEmbeddings:
@@ -68,8 +68,9 @@ class TestCalculateDEAForEmbeddings:
         )
 
         scores = efficiency_scores["embedding"]
-        assert np.all(scores >= 0)
-        assert np.all(scores <= 1)
+        # In output-oriented DEA, efficient DMUs score 1 and inefficient
+        # DMUs score above 1 because the value is an output expansion factor.
+        assert np.all(scores >= 1)
 
     def test_dea_invalid_rts(self, sample_data):
         """Test that invalid RTS raises error."""

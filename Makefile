@@ -43,27 +43,27 @@ test:
 
 test-cov:
 	@echo "Running tests with coverage..."
-	pytest tests/ --cov=src --cov-report=html --cov-report=term
+	pytest tests/ --cov=umap_dea --cov-report=html --cov-report=term
 	@echo "Coverage report generated in htmlcov/index.html"
 
 lint:
 	@echo "Checking code formatting with black..."
-	black --check src tests
+	black --check umap_dea tests
 	@echo "Checking import sorting with isort..."
-	isort --check-only src tests
+	isort --check-only umap_dea tests
 	@echo "Running flake8..."
-	flake8 src tests
+	flake8 umap_dea tests
 
 format:
 	@echo "Formatting code with black..."
-	black src tests
+	black umap_dea tests
 	@echo "Sorting imports with isort..."
-	isort src tests
+	isort umap_dea tests
 	@echo "Code formatted!"
 
 mypy:
 	@echo "Running type checking with mypy..."
-	mypy src
+	mypy umap_dea
 
 clean:
 	@echo "Removing build artifacts..."
