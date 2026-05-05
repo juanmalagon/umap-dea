@@ -21,20 +21,28 @@ def calculate_dea_for_embeddings(
         rts = RTS.vrs
     else:
         raise ValueError('rts must be either "crs" or "vrs"')
-    if orientation == 'input':
+    orientation_str = orientation
+    if orientation_str == 'input':
         orientation = Orientation.input
-    elif orientation == 'output':
+    elif orientation_str == 'output':
         orientation = Orientation.output
     else:
         raise ValueError('Orientation must be either "input" or "output"')
     efficiency_scores_dict = {}
     for embedding_name, embedding_df in embeddings_df_dict.items():
         logger.info('Calculating DEA for embedding: %s...', embedding_name)
-        efficiency_scores_dict[embedding_name] = dea(
+        eff = dea(
             embedding_df,
             y,
             rts=rts,
             orientation=orientation,
         ).eff
+        # Guard against numerically unstable LP solutions that produce
+        # impossible efficiency scores.
+        if orientation_str == 'input':
+            eff[eff > 1.0] = np.nan
+        elif orientation_str == 'output':
+            eff[eff < 1.0] = np.nan
+        efficiency_scores_dict[embedding_name] = eff
     logger.info('DEA calculations completed.')
     return efficiency_scores_dict
