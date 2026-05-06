@@ -57,6 +57,7 @@ def reduce_dims(
         n_components=n_components,
         metric=metric,
         random_state=seed,
+        n_jobs=1,
     )
     with warnings.catch_warnings():
         warnings.filterwarnings(
@@ -69,7 +70,7 @@ def reduce_dims(
         )
         u = fit.fit_transform(x)
     u = _shift_to_non_negative(u)
-    logger.info("Shape of the embedding: %s", u.shape)
+    logger.debug("Shape of the embedding: %s", u.shape)
     return u
 
 
@@ -112,7 +113,7 @@ def reduce_dimensions_with_pca(
         logger.info("Total explained variance: %.4f", explained_variance.sum())
 
     # Print shape information
-    logger.info("Shape transformed from %s to %s", X.shape, X_reduced.shape)
+    logger.debug("Shape transformed from %s to %s", X.shape, X_reduced.shape)
 
     return X_reduced
 
@@ -128,14 +129,14 @@ def create_embeddings(
 ) -> EmbeddingsResult:
     """Create reduced embeddings and include the original input space."""
 
-    logger.info("Original shape: %s", x.shape)
+    logger.debug("Original shape: %s", x.shape)
     dims_for_embedding_dict = get_dims_for_embedding(x)
     embeddings_df_dict: dict[str, np.ndarray] = {}
 
     if pca:
-        logger.info("Using PCA for dimensionality reduction")
+        logger.debug("Using PCA for dimensionality reduction")
         for k, v in dims_for_embedding_dict.items():
-            logger.info("Creating embedding with %s dimensions (%s)", v, k)
+            logger.debug("Creating embedding with %s dimensions (%s)", v, k)
             embeddings_df_dict[k] = reduce_dimensions_with_pca(
                 x,
                 d=v,
@@ -143,15 +144,15 @@ def create_embeddings(
                 verbose=False,
             )
     else:
-        logger.info("Using UMAP for dimensionality reduction")
-        logger.info(
+        logger.debug("Using UMAP for dimensionality reduction")
+        logger.debug(
             "UMAP parameters: n_neighbors=%s, min_dist=%s, metric=%s",
             umap_n_neighbors,
             umap_min_dist,
             umap_metric,
         )
         for k, v in dims_for_embedding_dict.items():
-            logger.info("Creating embedding with %s dimensions (%s)", v, k)
+            logger.debug("Creating embedding with %s dimensions (%s)", v, k)
             embeddings_df_dict[k] = reduce_dims(
                 x,
                 n_components=v,

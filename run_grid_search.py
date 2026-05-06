@@ -1,9 +1,11 @@
+import argparse
 import itertools
 import json
 import logging
 import os
 import subprocess
 import sys
+import time
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,7 @@ def run_grid_search(
     param_grid: dict,
     base_config: str = "config.json",
     results_base_dir: str = "results_grid_search",
+    verbose: bool = False,
 ):
     """Run simulations for all parameter combinations."""
 
@@ -45,17 +48,26 @@ def run_grid_search(
 
     # Generate all configurations
     configs = create_grid_search_config(base_config, param_grid)
+    total = len(configs)
 
-    logger.info("Running %s parameter combinations...", len(configs))
+    logger.info("Running %s parameter combinations...", total)
+    log_level = "INFO" if verbose else "WARNING"
 
     grid_results = []
+    start_time = time.monotonic()
+    sim_times = []
+
     for i, config in enumerate(configs):
+        sim_start = time.monotonic()
+
         logger.info(
-            "[%s/%s] Running with N=%s, n=%s",
+            "[%s/%s] N=%s, n=%s (elapsed: %s, ETA: %s)",
             i + 1,
-            len(configs),
+            total,
             config['N'],
             config['n'],
+            _fmt_duration(time.monotonic() - start_time),
+            _eta(time.monotonic() - start_time, i + 1, total),
         )
 
         # Create temporary config file for this run
@@ -66,22 +78,85 @@ def run_grid_search(
         try:
             # Run simulation with this config using the current Python env
             subprocess.run(
-                [sys.executable, "run_sim.py", "--config", temp_config_path],
+                [
+                    sys.executable, "run_sim.py",
+                    "--config", temp_config_path,
+                    "--log-level", log_level,
+                ],
                 check=True,
             )
         finally:
             if os.path.exists(temp_config_path):
                 os.remove(temp_config_path)
 
+        elapsed = time.monotonic() - sim_start
+        sim_times.append(elapsed)
+        logger.info(
+            "  -> completed in %s (avg: %s per sim)",
+            _fmt_duration(elapsed),
+            _fmt_duration(sum(sim_times) / len(sim_times)),
+        )
+
         grid_results.append(config)
 
-    logger.info("Completed all %s simulations!", len(configs))
+    total_elapsed = time.monotonic() - start_time
+    logger.info(
+        "Completed all %s simulations in %s!",
+        total,
+        _fmt_duration(total_elapsed),
+    )
     return grid_results
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
-    # Define your parameter grid
-    param_grid = {"N": [20, 50, 100, 200], "n": [20, 50, 100, 200]}
+def _fmt_duration(seconds: float) -> str:
+    """Format a duration in seconds to a human-readable string."""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    mins, secs = divmod(seconds, 60)
+    if mins < 60:
+        return f"{int(mins)}m {secs:.0f}s"
+    hours, mins = divmod(mins, 60)
+    return f"{int(hours)}h {int(mins)}m {secs:.0f}s"
 
-    run_grid_search(param_grid)
+
+def _eta(elapsed: float, done: int, total: int) -> str:
+    """Estimate remaining time."""
+    if done == 0:
+        return "?"
+    per_item = elapsed / done
+    remaining = per_item * (total - done)
+    return _fmt_duration(remaining)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Grid search over parameter combinations for UMAP-DEA."
+    )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show per-simulation detail (INFO level logs from subprocess)."
+    )
+    parser.add_argument(
+        "--param-grid",
+        type=str,
+        default=None,
+        help=(
+            "JSON string of the parameter grid, e.g. "
+            '\'{"N": [20, 50], "n": [20, 50]}\'. '
+            "Defaults to N=[20,50,100,200], n=[20,50,100,200]."
+        ),
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
+
+    if args.param_grid:
+        param_grid = json.loads(args.param_grid)
+    else:
+        param_grid = {"N": [20, 50, 100, 200], "n": [20, 50, 100, 200]}
+
+    run_grid_search(param_grid, verbose=args.verbose)

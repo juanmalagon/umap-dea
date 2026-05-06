@@ -117,7 +117,7 @@ def _format_header_params(params: dict) -> str:
 
     # UMAP hyperparameters
     nn = params.get("umap_n_neighbors", 15)
-    parts.append(r"\(n_{\text{neighbors}}=" + str(nn) + r"\)")
+    parts.append(r"\(k=" + str(nn) + r"\)")
 
     md = params.get("umap_min_dist", 0.1)
     parts.append(r"\(\text{min\_dist}=" + _format_param_value("min_dist", md) + r"\)")
@@ -246,7 +246,8 @@ def generate_latex_table(
 
     # Caption / label
     # Create a safe label from the group identifier
-    label_safe = f"tab:group_{group_index}"
+    rts_lower = ref_params.get("rts", "unknown").lower()
+    label_safe = f"tab:N_{ref_params['N']}_{rts_lower}"
     lines.append(
         "{"
         + header_params_str
@@ -263,9 +264,9 @@ def generate_latex_table(
     lines.append(
         r"\(n\) & Method & \(d\) & "
         r"\shortstack{MAE\\mean} & \shortstack{MAE\\std} & "
-        r"\shortstack{Spearman\\\(r\) mean} & \shortstack{Spearman\\\(r\) std} & "
-        r"\shortstack{Pearson\\\(r\) mean} & \shortstack{Pearson\\\(r\) std} & "
-        r"\shortstack{Kendall\\\(\tau\) mean} & \shortstack{Kendall\\\(\tau\) std} \\"
+        r"\shortstack{Spear.\\\(r\) mean} & \shortstack{Spear.\\\(r\) std} & "
+        r"\shortstack{Pear.\\\(r\) mean} & \shortstack{Pear.\\\(r\) std} & "
+        r"\shortstack{Kend.\\\(\tau\) mean} & \shortstack{Kend.\\\(\tau\) std} \\"
     )
     lines.append(r"\midrule")
 

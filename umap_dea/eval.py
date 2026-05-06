@@ -32,7 +32,7 @@ def create_evaluation_df(
 ) -> pd.DataFrame:
     """Create an evaluation dataframe for all available embeddings."""
 
-    logger.info("Creating evaluation dataframe...")
+    logger.debug("Creating evaluation dataframe...")
     mae_dict: dict[str, float] = {}
     spearmanr_dict: dict[str, float] = {}
     pearsonr_dict: dict[str, float] = {}
