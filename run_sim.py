@@ -1,4 +1,5 @@
 import os
+import gc
 import argparse
 import json
 import logging
@@ -12,6 +13,12 @@ import pandas as pd
 
 from umap_dea.config import SimulationConfig
 from umap_dea import dgp, dim_red, dea, eval
+
+# Prevent numpy from spawning too many threads per worker,
+# which causes thread contention and slowdown in parallel runs.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +98,10 @@ def export_results(evaluation_df_list: list,
                    results_dir: str) -> None:
     """
     Export results to csv files.
+
+    .. deprecated::
+        This function is kept for backward compatibility. The new
+        ``wrapper_function`` writes results incrementally via streaming.
     """
     # Save parameters
     pd.DataFrame(params_dict, index=[0]).to_csv(
@@ -149,15 +160,23 @@ def run_simulation_wrapper(args: tuple[ParamsDict, int]) -> SimulationResult:
 
         evaluation_df = run_simulation(params_dict)
         evaluation_df['iteration'] = i
-        return {'evaluation_df': evaluation_df, 'error': None, 'iteration': i}
+        result = {'evaluation_df': evaluation_df, 'error': None, 'iteration': i}
+        # Explicit cleanup to release memory in the worker process
+        gc.collect()
+        return result
     except Exception as e:
         logger.exception('Error in iteration %s: %s', i, str(e))
+        gc.collect()
         return {'evaluation_df': None, 'error': str(e), 'iteration': i}
 
 
 def wrapper_function(params_dict: ParamsDict, results_dir: str) -> None:
     """
     Parallelized wrapper function to run the simulation study.
+
+    Uses batch processing with imap_unordered to stream results to disk
+    incrementally, preventing memory accumulation from holding all 1000
+    DataFrames in memory simultaneously.
     """
     run_serial = str(uuid4())
 
@@ -178,6 +197,12 @@ def wrapper_function(params_dict: ParamsDict, results_dir: str) -> None:
     logger.info('Number of available CPUs: %s', cpu_count())
     logger.info('Number of simulations: %s', params_dict["nr_simulations"])
 
+    # Save parameters immediately
+    pd.DataFrame(params_dict, index=[0]).to_csv(
+        os.path.join(results_dir, f'params_dict_{run_serial}.csv'),
+        index=False,
+    )
+
     # Set random seed for main process
     np.random.seed(params_dict['seed'])
 
@@ -190,27 +215,105 @@ def wrapper_function(params_dict: ParamsDict, results_dir: str) -> None:
     # Determine number of processes to use (leave one CPU free)
     n_processes = max(1, cpu_count() - 1)
 
-    evaluation_df_list = []
-    errors_list = []
+    # Batch size: recreate the Pool periodically to fully release worker memory
+    batch_size = min(200, len(args_list))
+    total_batches = (len(args_list) + batch_size - 1) // batch_size
 
-    logger.info('Starting parallel processing with %s workers...', n_processes)
-    with Pool(processes=n_processes) as pool:
-        results = pool.map(run_simulation_wrapper, args_list)
-
-    # Process results
-    for result in results:
-        if result['error'] is None:
-            evaluation_df_list.append(result['evaluation_df'])
-        else:
-            errors_list.append(result['iteration'])
-
-    export_results(
-        evaluation_df_list,
-        errors_list,
-        params_dict,
-        run_serial,
-        results_dir,
+    evaluation_csv_path = os.path.join(
+        results_dir, f'evaluation_df_{run_serial}.csv'
     )
+    # Remove stale file if it exists
+    if os.path.exists(evaluation_csv_path):
+        os.remove(evaluation_csv_path)
+
+    errors_list = []
+    header_written = False
+
+    for batch_idx in range(total_batches):
+        batch_start = batch_idx * batch_size
+        batch_end = min(batch_start + batch_size, len(args_list))
+        batch_args = args_list[batch_start:batch_end]
+
+        logger.info(
+            'Batch %s/%s: iterations %s-%s of %s',
+            batch_idx + 1,
+            total_batches,
+            batch_start,
+            batch_end - 1,
+            len(args_list),
+        )
+
+        with Pool(processes=n_processes) as pool:
+            # Use imap_unordered to stream results as they complete,
+            # instead of collecting all 1000 in memory at once.
+            for result in pool.imap_unordered(run_simulation_wrapper, batch_args):
+                if result['error'] is None:
+                    df = result['evaluation_df']
+                    # Append to CSV immediately — never hold more than one
+                    # DataFrame in memory at a time.
+                    df.to_csv(
+                        evaluation_csv_path,
+                        mode='a',
+                        header=not header_written,
+                        index=False,
+                    )
+                    header_written = True
+                    del df
+                else:
+                    errors_list.append(result['iteration'])
+
+        # Force garbage collection between batches to release any
+        # memory that the Pool workers didn't free.
+        gc.collect()
+        logger.info(
+            'Batch %s/%s complete. Errors so far: %s',
+            batch_idx + 1,
+            total_batches,
+            len(errors_list),
+        )
+
+    logger.info('All batches complete. Writing final outputs...')
+
+    # Save errors
+    errors_list_df = pd.DataFrame(errors_list, columns=['iteration'])
+    errors_list_df.to_csv(
+        os.path.join(results_dir, f'errors_list_{run_serial}.csv'),
+        index=False,
+    )
+
+    # Read back the evaluation CSV and compute summary
+    if header_written:
+        evaluation_df = pd.read_csv(evaluation_csv_path)
+        summary_df = evaluation_df.groupby(['dim_reduction_level', 'dims']).agg(
+            {
+                'mae': ['mean', 'std'],
+                'spearmanr': ['mean', 'std'],
+                'pearsonr': ['mean', 'std'],
+                'kendalltau': ['mean', 'std'],
+            }
+        ).reset_index()
+        summary_df.columns = [
+            'dim_reduction_level',
+            'dims',
+            'mae_mean',
+            'mae_std',
+            'spearmanr_mean',
+            'spearmanr_std',
+            'pearsonr_mean',
+            'pearsonr_std',
+            'kendalltau_mean',
+            'kendalltau_std',
+        ]
+        summary_df.sort_values(by=['dims', 'dim_reduction_level']).to_csv(
+            os.path.join(results_dir, f'summary_df_{run_serial}.csv'),
+            index=False,
+        )
+    else:
+        logger.warning(
+            'No successful evaluations — skipping summary generation.'
+        )
+
+    logger.info('Completed all %s simulations!', params_dict["nr_simulations"])
 
 
 if __name__ == "__main__":
