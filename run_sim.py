@@ -317,7 +317,6 @@ def wrapper_function(params_dict: ParamsDict, results_dir: str) -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     parser = argparse.ArgumentParser(
         description="Run Monte Carlo simulations for UMAP-DEA."
     )
@@ -327,8 +326,20 @@ if __name__ == "__main__":
         default="config.json",
         help="Path to the JSON configuration file (default: config.json)"
     )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: INFO). Use WARNING to suppress per-step noise."
+    )
     args = parser.parse_args()
-    
+
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
+
     # Load configuration from JSON file
     with open(args.config, 'r') as f:
         config_dict = json.load(f)

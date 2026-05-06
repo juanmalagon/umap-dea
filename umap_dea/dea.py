@@ -30,7 +30,7 @@ def calculate_dea_for_embeddings(
         raise ValueError('Orientation must be either "input" or "output"')
     efficiency_scores_dict = {}
     for embedding_name, embedding_df in embeddings_df_dict.items():
-        logger.info('Calculating DEA for embedding: %s...', embedding_name)
+        logger.debug('Calculating DEA for embedding: %s...', embedding_name)
         eff = dea(
             embedding_df,
             y,
