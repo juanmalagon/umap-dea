@@ -5,7 +5,7 @@ Generate LaTeX tables from simulation results.
 Reads all params_dict_*.csv and summary_df_*.csv pairs from the results folder,
 groups runs by common hyperparameters (excluding n, which becomes the row variable),
 and outputs one .tex file per group containing a single sidewaystable (landscape)
-that merges accuracy, correlation, discrimination, and degeneracy metrics.
+that merges accuracy, correlation, and discrimination metrics.
 """
 
 import os
@@ -172,20 +172,20 @@ def _format_header_params(params: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-#  Merged landscape table – Accuracy, Correlation, Discrimination & Degeneracy
+#  Merged landscape table – Accuracy, Correlation & Discrimination
 # ---------------------------------------------------------------------------
 
 def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
     """
     Generate a single LaTeX sidewaystable (landscape) merging accuracy/correlation
-    and discrimination/degeneracy metrics into one wide table.
+    and discrimination metrics into one wide table.
 
-    Columns (19 total):
+    Columns (14 total):
       n | Method | d |
       MAE μ | MAE σ | Spearman ρ μ | Spearman ρ σ |
       Pearson r μ | Pearson r σ | Kendall τ μ | Kendall τ σ |
-      % Efficient μ | % Efficient σ | # Efficient μ | # Efficient σ |
-      # Valid μ | # Valid σ | ρ warnings | τ warnings
+      Efficient DMUs avg | Efficient DMUs sd |
+      % Non-discriminating
     """
     lines = []
     lines.append(r"\begin{sidewaystable}")
@@ -198,14 +198,14 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
     label_safe = f"tab:N_{ref_params['N']}_{rts_lower}"
 
     lines.append(
-        r"\caption{Accuracy, correlation, discrimination, and degeneracy metrics. "
+        r"\caption{Accuracy, correlation, and discrimination metrics. "
         + header_params_str
         + r"\label{" + label_safe + r"}}"
     )
 
-    # 19 columns: l l c + 16 c
+    # 14 columns: l l c + 11 c
     lines.append(
-        r"\begin{tabular}{@{}l l c c c c c c c c c c c c c c c c c@{}}"
+        r"\begin{tabular}{@{}l l c c c c c c c c c c c c@{}}"
     )
     lines.append(r"\toprule")
 
@@ -215,9 +215,9 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
     lines.append(
         r"& & & "
         r"\multicolumn{8}{c}{Accuracy and correlation} & "
-        r"\multicolumn{8}{c}{Discrimination and degeneracy} \\"
+        r"\multicolumn{3}{c}{Discrimination} \\"
     )
-    lines.append(r"\cmidrule(lr){4-11} \cmidrule(lr){12-19}")
+    lines.append(r"\cmidrule(lr){4-11} \cmidrule(lr){12-14}")
 
     # Row 2: Individual metric names
     lines.append(
@@ -226,30 +226,27 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
         r"\multicolumn{2}{c}{Spearman \(\rho\)} & "
         r"\multicolumn{2}{c}{Pearson \(r\)} & "
         r"\multicolumn{2}{c}{Kendall \(\tau\)} & "
-        r"\multicolumn{2}{c}{\% Efficient} & "
-        r"\multicolumn{2}{c}{\# Efficient} & "
-        r"\multicolumn{2}{c}{\# Valid} & "
-        r"\multicolumn{2}{c}{Warnings} \\"
+        r"\multicolumn{2}{c}{Efficient DMUs} & "
+        r"\% Non-discrim. \\"
     )
     lines.append(
         r"\cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9} "
-        r"\cmidrule(lr){10-11} \cmidrule(lr){12-13} \cmidrule(lr){14-15} "
-        r"\cmidrule(lr){16-17} \cmidrule(lr){18-19}"
+        r"\cmidrule(lr){10-11} \cmidrule(lr){12-13}"
     )
 
-    # Row 3: μ/σ or ρ/τ
+    # Row 3: μ/σ row
     lines.append(
         r"& & & "
         r"mean & std & "
         r"mean & std & "
         r"mean & std & "
         r"mean & std & "
-        r"mean & std & "
-        r"mean & std & "
-        r"mean & std & "
-        r"\(\rho\) & \(\tau\) \\"
+        r"avg & sd & "
+        r" \\"
     )
     lines.append(r"\midrule")
+
+    nr_simulations = ref_params.get("nr_simulations", 1000)
 
     # Data rows
     prev_n = None
@@ -272,15 +269,11 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
         kt_mean = _format_number(row["kendalltau_mean"])
         kt_std = _format_number(row["kendalltau_std"])
 
-        # Discrimination / degeneracy metrics
-        prop_eff_mean = _format_number(row["prop_efficient_mean"] * 100)
-        prop_eff_std = _format_number(row["prop_efficient_std"] * 100)
+        # Discrimination metrics
         nr_eff_mean = _format_number(row["nr_efficient_mean"])
         nr_eff_std = _format_number(row["nr_efficient_std"])
-        nr_valid_mean = _format_number(row["nr_non_nan_mean"])
-        nr_valid_std = _format_number(row["nr_non_nan_std"])
-        sp_warn = str(int(row["spearmanr_warning_count"]))
-        kt_warn = str(int(row["kendalltau_warning_count"]))
+        non_discrim_pct = row["spearmanr_warning_count"] / nr_simulations * 100
+        non_discrim_str = f"{non_discrim_pct:.1f}\\%"
 
         lines.append(
             f"{n_str} & {method} & {d_str} & "
@@ -288,10 +281,8 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
             f"{spr_mean} & {spr_std} & "
             f"{ppr_mean} & {ppr_std} & "
             f"{kt_mean} & {kt_std} & "
-            f"{prop_eff_mean} & {prop_eff_std} & "
             f"{nr_eff_mean} & {nr_eff_std} & "
-            f"{nr_valid_mean} & {nr_valid_std} & "
-            f"{sp_warn} & {kt_warn} \\\\"
+            f"{non_discrim_str} \\\\"
         )
         prev_n = current_n
 
@@ -308,7 +299,7 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
 def generate_latex_tables(runs_in_group: list[dict], group_index: int) -> str:
     """
     Generate a single LaTeX sidewaystable (landscape) for a group of runs,
-    merging accuracy, correlation, discrimination, and degeneracy metrics.
+    merging accuracy, correlation, and discrimination metrics.
 
     Runs in the group share the same hyperparameters (except n).
     """
