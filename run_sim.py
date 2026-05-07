@@ -127,6 +127,11 @@ def export_results(evaluation_df_list: list,
             'spearmanr': ['mean', 'std'],
             'pearsonr': ['mean', 'std'],
             'kendalltau': ['mean', 'std'],
+            'nr_efficient': ['mean', 'std'],
+            'prop_efficient': ['mean', 'std'],
+            'nr_non_nan': ['mean', 'std'],
+            'spearmanr_warning': 'sum',
+            'kendalltau_warning': 'sum',
         }
     ).reset_index()
     summary_df.columns = [
@@ -140,6 +145,14 @@ def export_results(evaluation_df_list: list,
         'pearsonr_std',
         'kendalltau_mean',
         'kendalltau_std',
+        'nr_efficient_mean',
+        'nr_efficient_std',
+        'prop_efficient_mean',
+        'prop_efficient_std',
+        'nr_non_nan_mean',
+        'nr_non_nan_std',
+        'spearmanr_warning_count',
+        'kendalltau_warning_count',
     ]
     summary_df.sort_values(by=['dims', 'dim_reduction_level']).to_csv(
         os.path.join(results_dir, f'summary_df_{run_serial}.csv'), index=False)
@@ -290,6 +303,11 @@ def wrapper_function(params_dict: ParamsDict, results_dir: str) -> None:
                 'spearmanr': ['mean', 'std'],
                 'pearsonr': ['mean', 'std'],
                 'kendalltau': ['mean', 'std'],
+                'nr_efficient': ['mean', 'std'],
+                'prop_efficient': ['mean', 'std'],
+                'nr_non_nan': ['mean', 'std'],
+                'spearmanr_warning': 'sum',
+                'kendalltau_warning': 'sum',
             }
         ).reset_index()
         summary_df.columns = [
@@ -303,6 +321,14 @@ def wrapper_function(params_dict: ParamsDict, results_dir: str) -> None:
             'pearsonr_std',
             'kendalltau_mean',
             'kendalltau_std',
+            'nr_efficient_mean',
+            'nr_efficient_std',
+            'prop_efficient_mean',
+            'prop_efficient_std',
+            'nr_non_nan_mean',
+            'nr_non_nan_std',
+            'spearmanr_warning_count',
+            'kendalltau_warning_count',
         ]
         summary_df.sort_values(by=['dims', 'dim_reduction_level']).to_csv(
             os.path.join(results_dir, f'summary_df_{run_serial}.csv'),

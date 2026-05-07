@@ -101,7 +101,26 @@ python run_sim.py --config config.json
 
 ### Grid search
 
-Use [run_grid_search.py](run_grid_search.py) to iterate over parameter combinations and launch repeated simulation runs.
+Use [run_grid_search.py](run_grid_search.py) to iterate over parameter combinations and launch repeated simulation runs. The script accepts any config key in the grid — not just `N` and `n`.
+
+```bash
+# Default grid over N and n
+python run_grid_search.py
+
+# Custom grid over N and n (overrides defaults)
+python run_grid_search.py --param-grid '{"N": [50, 100], "n": [50, 100]}'
+
+# Grid over N and rts (varying returns to scale)
+python run_grid_search.py --param-grid '{"N": [50, 100, 200], "rts": ["crs", "vrs"]}'
+
+# Grid over N, n, and rts (3-way grid, all combinations)
+python run_grid_search.py --param-grid '{"N": [20, 50], "n": [20, 50], "rts": ["crs", "vrs"]}'
+
+# Verbose mode to see per-simulation logs
+python run_grid_search.py --param-grid '{"N": [50, 100], "rts": ["crs", "vrs"]}' --verbose
+```
+
+Results are placed under `results_grid_search/` by default. Each simulation uses the base config from `config.json`, with only the grid parameters overridden.
 
 ### Configuration model
 

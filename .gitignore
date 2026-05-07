@@ -180,4 +180,4 @@ cython_debug/
 results/
 results_grid_search/
 results_grid_search/temp_config_*.json
-# **/*.json
+tex/

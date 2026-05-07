@@ -126,28 +126,90 @@ The simulation creates a `results/` directory if it does not already exist and w
 
 ## Grid search
 
-To run a simple grid search over selected parameters:
+Run a parameter grid search with `run_grid_search.py`. The script takes the base configuration from `config.json` and overrides the grid parameters for each combination.
 
 ```bash
+# Default grid over N and n
 python run_grid_search.py
+
+# Custom grid over any config parameters (overrides defaults)
+python run_grid_search.py --param-grid '{"N": [50, 100], "n": [50, 100]}'
+
+# Grid over N and returns-to-scale (rts)
+python run_grid_search.py --param-grid '{"N": [50, 100, 200], "rts": ["crs", "vrs"]}'
+
+# 3-way grid over N, n, and orientation
+python run_grid_search.py --param-grid '{"N": [20, 50], "n": [20, 50], "orientation": ["input", "output"]}'
 ```
 
-By default, the script varies `N` and `n` over a predefined grid and launches `run_sim.py` for each configuration.
+You can grid search over **any** config key — `N`, `n`, `rts`, `orientation`, `alpha_1`, `gamma`, `sigma_u`, `umap_n_neighbors`, `umap_min_dist`, `umap_metric`, etc. All combinations of the provided values are run.
+
+Without `--param-grid`, the default grid is `N ∈ [20, 50, 100, 200]` and `n ∈ [20, 50, 100, 200]`.
+
+Results are placed in `results_grid_search/`.
 
 ## Interpreting results
 
-The exported evaluation files include metrics such as:
-- `mae`
-- `spearmanr`
-- `pearsonr`
-- `kendalltau`
-- `nr_non_nan`
+Each run writes four CSV files to `results/`:
 
-The `evaluation_df` includes entries for reduced embeddings and for the `original` input space, which is used as a baseline.
+| File | Content |
+|---|---|
+| `params_dict_<UUID>.csv` | Parameters used for this run |
+| `evaluation_df_<UUID>.csv` | Per-iteration, per-embedding metrics |
+| `summary_df_<UUID>.csv` | Mean, standard deviation, and warning counts aggregated by embedding and dimensionality |
+| `errors_list_<UUID>.csv` | Iteration indices that failed with an exception |
 
-For DEA orientation:
-- input-oriented scores are expected to lie in the usual efficiency range,
-- output-oriented scores come directly from `dealib` and follow that library's output-oriented convention.
+### `evaluation_df_<UUID>.csv`
+
+One row per embedding (`original` baseline + reduced embeddings) per simulation iteration.
+
+| Column | Type | Description |
+|---|---|---|
+| `dim_reduction_level` | `str` | Embedding label (e.g. `original`, `embedding`) |
+| `dims` | `int` | Number of dimensions in the embedding |
+| `iteration` | `int` | Simulation iteration (0-indexed) |
+| `mae` | `float` | Mean absolute error between estimated and design efficiency scores |
+| `spearmanr` | `float` | Spearman rank correlation; `NaN` when undefined (see below) |
+| `spearmanr_warning` | `bool` | `True` if Spearman correlation was undefined for this embedding |
+| `pearsonr` | `float` | Pearson correlation |
+| `kendalltau` | `float` | Kendall's τ; `NaN` when undefined |
+| `kendalltau_warning` | `bool` | `True` if Kendall's τ was undefined for this embedding |
+| `nr_non_nan` | `int` | Number of DMUs with valid (non-NaN) DEA scores |
+| `nr_efficient` | `int` | Number of DMUs identified as efficient (score within 1e-6 of 1.0) |
+| `prop_efficient` | `float` | Proportion of efficient DMUs among those with valid scores; `NaN` if no valid scores exist |
+
+### `summary_df_<UUID>.csv`
+
+Aggregated over all simulation iterations. Each row is one `(dim_reduction_level, dims)` group.
+
+| Column | Type | Description |
+|---|---|---|
+| `dim_reduction_level` | `str` | Embedding label |
+| `dims` | `int` | Number of dimensions in the embedding |
+| `mae_mean` / `mae_std` | `float` | Mean and standard deviation of MAE |
+| `spearmanr_mean` / `spearmanr_std` | `float` | Mean and standard deviation of Spearman's r (NaNs excluded) |
+| `pearsonr_mean` / `pearsonr_std` | `float` | Mean and standard deviation of Pearson's r |
+| `kendalltau_mean` / `kendalltau_std` | `float` | Mean and standard deviation of Kendall's τ (NaNs excluded) |
+| `nr_efficient_mean` / `nr_efficient_std` | `float` | Mean and standard deviation of the efficient DMU count |
+| `prop_efficient_mean` / `prop_efficient_std` | `float` | Mean and standard deviation of the efficient DMU proportion |
+| `nr_non_nan_mean` / `nr_non_nan_std` | `float` | Mean and standard deviation of the valid DMU count |
+| `spearmanr_warning_count` | `int` | Number of iterations with an undefined Spearman correlation |
+| `kendalltau_warning_count` | `int` | Number of iterations with an undefined Kendall's τ |
+
+### When are correlations undefined?
+
+Spearman and Kendall correlations are set to `NaN` (and their corresponding warning flags to `True`) when:
+
+- an efficiency-score array is constant (all DMUs are deemed equally efficient),
+- fewer than 3 valid observations remain after dropping NaNs,
+- a pair of arrays has fewer than 2 unique values in either array.
+
+This happens, for example, when a large fraction of DMUs lands on the efficiency frontier, producing scores that are all very close or identical to 1.0. In those cases, rank correlation is not meaningful, and the summary statistics exclude those `NaN` entries from the computed mean and standard deviation.
+
+### DEA orientation
+
+- Input-oriented scores follow the usual DEA efficiency convention (≤ 1).
+- Output-oriented scores follow `dealib`'s convention and use a different scale; do not compare them directly with input-oriented scores.
 
 ## Main modules
 

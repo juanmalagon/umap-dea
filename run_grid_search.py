@@ -60,12 +60,12 @@ def run_grid_search(
     for i, config in enumerate(configs):
         sim_start = time.monotonic()
 
+        param_info = ", ".join(f"{k}={config[k]}" for k in param_grid)
         logger.info(
-            "[%s/%s] N=%s, n=%s (elapsed: %s, ETA: %s)",
+            "[%s/%s] %s (elapsed: %s, ETA: %s)",
             i + 1,
             total,
-            config['N'],
-            config['n'],
+            param_info,
             _fmt_duration(time.monotonic() - start_time),
             _eta(time.monotonic() - start_time, i + 1, total),
         )
