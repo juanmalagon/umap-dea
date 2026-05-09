@@ -28,19 +28,30 @@ At a high level, a simulation run follows this workflow:
 ```text
 .
 ├── config.json              Default simulation configuration
-├── run_sim.py               Main simulation entry point
-├── run_grid_search.py       Parameter-grid runner
+├── pyproject.toml           Package metadata, dependencies, and tool config
+├── requirements.txt         Simple dependency list (mirrors pyproject.toml)
+├── Makefile                 Common development commands
 ├── umap_dea/
 │   ├── config.py            Simulation configuration dataclass
 │   ├── dgp.py               Data-generating process
 │   ├── dim_red.py           UMAP/PCA dimensionality reduction helpers
 │   ├── dea.py               DEA wrapper around dealib
 │   └── eval.py              Evaluation metrics and result dataframe creation
+├── scripts/
+│   ├── run_sim.py           Main simulation entry point
+│   ├── run_grid_search.py   Parameter-grid runner (also exposed as `umap-dea-run`)
+│   ├── find_best_dim_reduction.py    Best dimensionality reduction analysis
+│   ├── setup_dev.sh         Developer environment setup helper
+│   └── latex/
+│       ├── generate_tables.py        Generate LaTeX tables from results
+│       ├── generate_appendix.py      Generate appendix subsection .tex files
+│       ├── compare_vs_pca.py         UMAP vs PCA head-to-head comparison tables
+│       └── compare_vs_conventional.py   Dimension-reduced vs conventional DEA tables
 ├── tests/                   Unit tests
-├── experiments/             Notebooks and experimental scripts
-├── requirements.txt         Simple dependency list
-├── pyproject.toml           Package metadata and optional dependency groups
-├── pytest.ini               Active pytest configuration
+├── experiments/             Notebooks and exploratory scripts
+├── results/                 Simulation output (CSV files)
+├── tex/                     Generated LaTeX tables
+├── analysis/                Analysis output (e.g., best dimension reduction)
 └── DEVELOPMENT.md           Developer-oriented setup and workflow guide
 ```
 
@@ -110,10 +121,16 @@ Important parameters:
 ### 2. Run a simulation study
 
 ```bash
-python run_sim.py --config config.json
+python scripts/run_sim.py --config config.json
 ```
 
-If `--config` is omitted, the script defaults to `config.json`.
+If `--config` is omitted, the script defaults to `config.json` at the project root.
+
+The grid-search runner is also available as a console script after installation:
+
+```bash
+umap-dea-run --param-grid '{"N": [20, 50], "n": [20, 50]}'
+```
 
 ### 3. Review outputs
 
@@ -130,16 +147,22 @@ Run a parameter grid search with `run_grid_search.py`. The script takes the base
 
 ```bash
 # Default grid over N and n
-python run_grid_search.py
+python scripts/run_grid_search.py
 
 # Custom grid over any config parameters (overrides defaults)
-python run_grid_search.py --param-grid '{"N": [50, 100], "n": [50, 100]}'
+python scripts/run_grid_search.py --param-grid '{"N": [50, 100], "n": [50, 100]}'
 
 # Grid over N and returns-to-scale (rts)
-python run_grid_search.py --param-grid '{"N": [50, 100, 200], "rts": ["crs", "vrs"]}'
+python scripts/run_grid_search.py --param-grid '{"N": [50, 100, 200], "rts": ["crs", "vrs"]}'
 
 # 3-way grid over N, n, and orientation
-python run_grid_search.py --param-grid '{"N": [20, 50], "n": [20, 50], "orientation": ["input", "output"]}'
+python scripts/run_grid_search.py --param-grid '{"N": [20, 50], "n": [20, 50], "orientation": ["input", "output"]}'
+```
+
+Or use the installed console script:
+
+```bash
+umap-dea-run --param-grid '{"N": [50, 100], "n": [50, 100]}'
 ```
 
 You can grid search over **any** config key — `N`, `n`, `rts`, `orientation`, `alpha_1`, `gamma`, `sigma_u`, `umap_n_neighbors`, `umap_min_dist`, `umap_metric`, etc. All combinations of the provided values are run.
@@ -227,11 +250,11 @@ Run the test suite with:
 pytest
 ```
 
-Note: this repository uses [pytest.ini](pytest.ini) as the active pytest configuration file.
+Pytest configuration is defined in `[tool.pytest.ini_options]` within [pyproject.toml](pyproject.toml).
 
 ## Notebooks and experiments
 
-The [experiments/](experiments) folder contains notebooks and exploratory scripts used during development and analysis. These are useful for inspection and experimentation, but the main reproducible workflow is driven by [run_sim.py](run_sim.py) and [run_grid_search.py](run_grid_search.py).
+The [experiments/](experiments) folder contains notebooks and exploratory scripts used during development and analysis. These are useful for inspection and experimentation, but the main reproducible workflow is driven by [scripts/run_sim.py](scripts/run_sim.py) and [scripts/run_grid_search.py](scripts/run_grid_search.py).
 
 ## Development
 

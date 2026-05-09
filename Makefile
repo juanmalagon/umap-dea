@@ -23,7 +23,7 @@ help:
 
 venv:
 	@echo "Setting up pyenv virtual environment..."
-	@bash setup_dev.sh
+	@bash scripts/setup_dev.sh
 
 install:
 	@echo "Installing core dependencies..."

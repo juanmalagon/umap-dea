@@ -60,8 +60,11 @@ Repository = "https://github.com/juanmalagon/umap-dea.git"
 Documentation = "https://github.com/juanmalagon/umap-dea/wiki"
 Issues = "https://github.com/juanmalagon/umap-dea/issues"
 
+[project.scripts]
+umap-dea-run = "scripts.run_grid_search:main"
+
 [tool.setuptools.packages.find]
-include = ["umap_dea*"]
+include = ["umap_dea*", "scripts*"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

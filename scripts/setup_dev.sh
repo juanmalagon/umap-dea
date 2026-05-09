@@ -28,26 +28,30 @@ else
     echo "✓ Python $PYTHON_VERSION already installed"
 fi
 
-# Create or activate virtual environment
-VENV_NAME="umap-dea"
-if pyenv virtualenvs | grep -q "$VENV_NAME"; then
+# Create virtual environment (.venv)
+VENV_NAME=".venv"
+PYTHON_BIN="$HOME/.pyenv/versions/$PYTHON_VERSION/bin/python"
+
+if [[ -d "$VENV_NAME" ]]; then
     echo "✓ Virtual environment '$VENV_NAME' already exists"
 else
+    if [[ ! -x "$PYTHON_BIN" ]]; then
+        echo "❌ Python binary not found at $PYTHON_BIN"
+        exit 1
+    fi
     echo "🔨 Creating virtual environment '$VENV_NAME'..."
-    pyenv virtualenv "$PYTHON_VERSION" "$VENV_NAME"
+    "$PYTHON_BIN" -m venv "$VENV_NAME"
 fi
-
-echo "⚙️  Setting local pyenv version..."
-pyenv local "$VENV_NAME"
 
 echo ""
 echo "✓ Virtual environment is ready!"
 echo ""
 echo "📋 Next steps:"
-echo "   1. Activate the environment: eval \"\$(pyenv init -)\" && pyenv activate $VENV_NAME"
+echo "   1. Activate the environment: source $VENV_NAME/bin/activate"
 echo "   2. Install dependencies: pip install -e \".[dev]\""
 echo "   3. Run tests: pytest"
 echo ""
 echo "Or just run:"
+echo "   source $VENV_NAME/bin/activate"
 echo "   pip install -e \".[dev]\""
 echo "   pytest"

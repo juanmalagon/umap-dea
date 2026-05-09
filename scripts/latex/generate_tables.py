@@ -15,8 +15,11 @@ import hashlib
 import pandas as pd
 import numpy as np
 
-RESULTS_DIR = "results"
-OUTPUT_DIR = "tex"
+import os
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
+RESULTS_DIR = os.path.join(_PROJECT_ROOT, "results")
+OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "tex")
 
 
 def load_all_runs(results_dir: str) -> list[dict]:

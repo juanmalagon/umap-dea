@@ -18,7 +18,9 @@ import os
 import re
 
 # Paths
-TEX_DIR = "tex"
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
+TEX_DIR = os.path.join(_PROJECT_ROOT, "tex")
 SUBSECTIONS_DIR = os.path.join(TEX_DIR, "subsections")
 
 # Regex patterns

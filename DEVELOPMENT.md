@@ -23,18 +23,18 @@ The repository includes [.python-version](.python-version) and currently targets
 
 The package metadata in [pyproject.toml](pyproject.toml) declares `>=3.9`, but if you want to match the maintained local workflow exactly, use Python `3.12.0`.
 
-### Recommended setup: `pyenv` + virtualenv
+### Recommended setup: `pyenv` + `venv`
 
-If you use `pyenv`, the repository includes [setup_dev.sh](setup_dev.sh), which:
+If you use `pyenv`, the repository includes [scripts/setup_dev.sh](scripts/setup_dev.sh), which:
 - checks for `pyenv`,
 - installs the configured Python version if needed,
-- creates a `pyenv` virtual environment named `umap-dea`,
-- sets it as the local environment.
+- creates a standard `venv` directory named `.venv/` using the pyenv-managed Python.
 
 Typical flow:
 
 ```bash
-bash setup_dev.sh
+bash scripts/setup_dev.sh
+source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
@@ -93,31 +93,37 @@ pip install -e ".[dev,jupyter]"
 
 ### Main simulation entry point
 
-Use [run_sim.py](run_sim.py) to execute a simulation batch from a JSON configuration:
+Use [scripts/run_sim.py](scripts/run_sim.py) to execute a simulation batch from a JSON configuration:
 
 ```bash
-python run_sim.py --config config.json
+python scripts/run_sim.py --config config.json
 ```
 
 ### Grid search
 
-Use [run_grid_search.py](run_grid_search.py) to iterate over parameter combinations and launch repeated simulation runs. The script accepts any config key in the grid — not just `N` and `n`.
+Use [scripts/run_grid_search.py](scripts/run_grid_search.py) to iterate over parameter combinations and launch repeated simulation runs. The script accepts any config key in the grid — not just `N` and `n`.
 
 ```bash
 # Default grid over N and n
-python run_grid_search.py
+python scripts/run_grid_search.py
 
 # Custom grid over N and n (overrides defaults)
-python run_grid_search.py --param-grid '{"N": [50, 100], "n": [50, 100]}'
+python scripts/run_grid_search.py --param-grid '{"N": [50, 100], "n": [50, 100]}'
 
 # Grid over N and rts (varying returns to scale)
-python run_grid_search.py --param-grid '{"N": [50, 100, 200], "rts": ["crs", "vrs"]}'
+python scripts/run_grid_search.py --param-grid '{"N": [50, 100, 200], "rts": ["crs", "vrs"]}'
 
 # Grid over N, n, and rts (3-way grid, all combinations)
-python run_grid_search.py --param-grid '{"N": [20, 50], "n": [20, 50], "rts": ["crs", "vrs"]}'
+python scripts/run_grid_search.py --param-grid '{"N": [20, 50], "n": [20, 50], "rts": ["crs", "vrs"]}'
 
 # Verbose mode to see per-simulation logs
-python run_grid_search.py --param-grid '{"N": [50, 100], "rts": ["crs", "vrs"]}' --verbose
+python scripts/run_grid_search.py --param-grid '{"N": [50, 100], "rts": ["crs", "vrs"]}' --verbose
+```
+
+After installation, the grid-search runner is also available as the console script `umap-dea-run`:
+
+```bash
+umap-dea-run --param-grid '{"N": [50, 100], "n": [50, 100]}'
 ```
 
 Results are placed under `results_grid_search/` by default. Each simulation uses the base config from `config.json`, with only the grid parameters overridden.
@@ -187,7 +193,7 @@ Current behavior to be aware of:
 - rows may therefore include the `original` baseline,
 - `dim_reduction_level` is the naming column used in exports and summaries.
 
-### [run_sim.py](run_sim.py)
+### [scripts/run_sim.py](scripts/run_sim.py)
 
 Coordinates the full workflow:
 - data generation,
@@ -213,7 +219,7 @@ Or with coverage:
 pytest --cov=umap_dea --cov-report=html --cov-report=term
 ```
 
-Important: the active pytest configuration is [pytest.ini](pytest.ini). Even though [pyproject.toml](pyproject.toml) also contains pytest settings, pytest currently reports that it is using [pytest.ini](pytest.ini).
+Pytest configuration lives in `[tool.pytest.ini_options]` within [pyproject.toml](pyproject.toml). The previously separate `pytest.ini` file has been removed in favor of consolidating all tool configuration in `pyproject.toml`.
 
 ### Testing philosophy
 
@@ -261,9 +267,9 @@ Before relying on notebook logic:
 
 ## Common pitfalls
 
-### 1. Confusing pytest config sources
+### 1. Script locations
 
-Use [pytest.ini](pytest.ini) as the source of truth for test execution behavior.
+All runnable scripts live under `scripts/`. Use `python scripts/run_sim.py` (not `python run_sim.py`) and `python scripts/run_grid_search.py` (or the `umap-dea-run` console script).
 
 ### 2. Assuming all evaluation rows are reduced embeddings
 
@@ -275,7 +281,7 @@ They do not necessarily. The wrapper currently preserves `dealib` semantics.
 
 ### 4. Treating notebooks as authoritative
 
-The main implementation lives in [umap_dea/](umap_dea) and the root-level runner scripts.
+The main implementation lives in [umap_dea/](umap_dea) and the runner scripts in [scripts/](scripts).
 
 ## Suggested workflow for contributors
 

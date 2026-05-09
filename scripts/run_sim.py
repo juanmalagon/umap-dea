@@ -183,6 +183,9 @@ def run_simulation_wrapper(args: tuple[ParamsDict, int]) -> SimulationResult:
         return {'evaluation_df': None, 'error': str(e), 'iteration': i}
 
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
+
 def wrapper_function(params_dict: ParamsDict, results_dir: str) -> None:
     """
     Parallelized wrapper function to run the simulation study.
@@ -349,7 +352,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="config.json",
+        default=os.path.join(_PROJECT_ROOT, "config.json"),
         help="Path to the JSON configuration file (default: config.json)"
     )
     parser.add_argument(
@@ -377,7 +380,7 @@ if __name__ == "__main__":
     params_dict = asdict(config)
     
     # Set up results directory
-    results_dir = 'results'
+    results_dir = os.path.join(_PROJECT_ROOT, 'results')
     os.makedirs(results_dir, exist_ok=True)
     
     # Run the simulations

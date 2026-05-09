@@ -7,6 +7,9 @@ import subprocess
 import sys
 import time
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_RUN_SIM_PATH = os.path.join(_SCRIPT_DIR, "run_sim.py")
+
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +82,7 @@ def run_grid_search(
             # Run simulation with this config using the current Python env
             subprocess.run(
                 [
-                    sys.executable, "run_sim.py",
+                    sys.executable, _RUN_SIM_PATH,
                     "--config", temp_config_path,
                     "--log-level", log_level,
                 ],
@@ -128,7 +131,8 @@ def _eta(elapsed: float, done: int, total: int) -> str:
     return _fmt_duration(remaining)
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> None:
+    """CLI entry point for grid search over parameter combinations."""
     parser = argparse.ArgumentParser(
         description="Grid search over parameter combinations for UMAP-DEA."
     )
@@ -147,7 +151,7 @@ if __name__ == "__main__":
             "Defaults to N=[20,50,100,200], n=[20,50,100,200]."
         ),
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     logging.basicConfig(
         level=logging.INFO,
@@ -160,3 +164,7 @@ if __name__ == "__main__":
         param_grid = {"N": [20, 50, 100, 200], "n": [20, 50, 100, 200]}
 
     run_grid_search(param_grid, verbose=args.verbose)
+
+
+if __name__ == "__main__":
+    main()
