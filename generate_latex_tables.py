@@ -11,11 +11,12 @@ that merges accuracy, correlation, and discrimination metrics.
 import os
 import re
 import glob
+import hashlib
 import pandas as pd
 import numpy as np
 
 RESULTS_DIR = "results"
-OUTPUT_DIR = "results"
+OUTPUT_DIR = "tex"
 
 
 def load_all_runs(results_dir: str) -> list[dict]:
@@ -88,6 +89,11 @@ def _dim_reduction_label(level: str) -> str:
     return mapping.get(level, level)
 
 
+def _is_pca(params: dict) -> bool:
+    """Return True if this parameter set uses PCA (not UMAP) for dim reduction."""
+    return bool(params.get("pca", False))
+
+
 def _generate_group_label(params: dict) -> str:
     """
     Generate a unique identifying label for a group of runs (for file naming).
@@ -95,7 +101,7 @@ def _generate_group_label(params: dict) -> str:
     """
     parts = []
 
-    parts.append(f"N_{params.get('N', '?')}")
+    parts.append(f"N_{params.get('N', 'missing')}")
 
     rts = params.get("rts", "")
     orient = params.get("orientation", "")
@@ -105,19 +111,18 @@ def _generate_group_label(params: dict) -> str:
     parts.append(f"sigma_{_format_param_value_for_filename(params.get('sigma_u', '?'))}")
     parts.append(f"alpha_{_format_param_value_for_filename(params.get('alpha_1', '?'))}")
 
-    nn = params.get("umap_n_neighbors", 15)
-    parts.append(f"nn_{nn}")
-    md = params.get("umap_min_dist", 0.1)
-    parts.append(f"md_{_format_param_value_for_filename(md)}")
-    metric = params.get("umap_metric", "euclidean")
-    parts.append(f"metric_{metric}")
+    if not _is_pca(params):
+        nn = params.get("umap_n_neighbors", 15)
+        parts.append(f"nn_{nn}")
+        md = params.get("umap_min_dist", 0.1)
+        parts.append(f"md_{_format_param_value_for_filename(md)}")
+        metric = params.get("umap_metric", "euclidean")
+        parts.append(f"metric_{metric}")
 
     m_val = params.get("M", 1)
     parts.append(f"M_{m_val}")
 
-    pca_val = params.get("pca", False)
-    if pca_val:
-        parts.append("PCA")
+    parts.append("PCA" if _is_pca(params) else "UMAP")
 
     return "_".join(parts)
 
@@ -141,7 +146,7 @@ def _format_header_params(params: dict) -> str:
     rts_display = params.get("rts", "").upper()
     parts.append(rts_display)
 
-    parts.append(r"\(N=" + str(params["N"]) + r"\)")
+    parts.append(r"\(N=" + str(params.get("N", "?")) + r"\)")
 
     parts.append(r"\(\gamma=" + _format_param_value("gamma", params["gamma"]) + r"\)")
 
@@ -149,24 +154,21 @@ def _format_header_params(params: dict) -> str:
         r"\(\sigma_u=" + _format_param_value("sigma_u", params["sigma_u"]) + r"\)"
     )
 
-    alpha_val = params["alpha_1"]
+    alpha_val = params.get("alpha_1", "?")
     parts.append(r"\(\alpha_1=" + _format_param_value("alpha_1", alpha_val) + r"\)")
 
-    nn = params.get("umap_n_neighbors", 15)
-    parts.append(r"\(k=" + str(nn) + r"\)")
+    if not _is_pca(params):
+        nn = params.get("umap_n_neighbors", 15)
+        parts.append(r"\(k=" + str(nn) + r"\)")
 
-    md = params.get("umap_min_dist", 0.1)
-    parts.append(r"\(\text{min\_dist}=" + _format_param_value("min_dist", md) + r"\)")
+        md = params.get("umap_min_dist", 0.1)
+        parts.append(r"\(\text{min\_dist}=" + _format_param_value("min_dist", md) + r"\)")
 
-    metric = params.get("umap_metric", "euclidean")
-    parts.append(r"\(\text{metric}=" + metric + r"\)")
+        metric = params.get("umap_metric", "euclidean")
+        parts.append(r"\(\text{metric}=" + metric + r"\)")
 
     m_val = params.get("M", 1)
     parts.append(r"\(M=" + str(m_val) + r"\)")
-
-    pca_val = params.get("pca", False)
-    if pca_val:
-        parts.append("PCA")
 
     return ", ".join(parts)
 
@@ -195,10 +197,12 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
 
     header_params_str = _format_header_params(ref_params)
     rts_lower = ref_params.get("rts", "unknown").lower()
-    label_safe = f"tab:N_{ref_params['N']}_{rts_lower}"
+    pca_suffix = "_pca" if ref_params.get("pca", False) else "_umap"
+    label_safe = f"tab:N_{ref_params['N']}_{rts_lower}{pca_suffix}"
 
+    dea_type = "PCA-DEA" if ref_params.get("pca", False) else "UMAP-DEA"
     lines.append(
-        r"\caption{Accuracy, correlation, and discrimination metrics. "
+        r"\caption{Accuracy, correlation, and discrimination metrics " + dea_type + r".\\ "
         + header_params_str
         + r"\label{" + label_safe + r"}}"
     )
@@ -319,9 +323,17 @@ def generate_latex_tables(runs_in_group: list[dict], group_index: int) -> str:
     combined = pd.concat(all_rows, ignore_index=True)
     combined = combined.sort_values(by=["n", "dims"], ascending=[True, True])
 
-    # Header comment
+    # Header comment with traceability info
+    serials = sorted(run["run_serial"] for run in runs_in_group)
+    serials_comment = "% Generated from runs: " + ", ".join(serials)
+
     header_params_str = _format_header_params(ref_params)
-    separator = f"\n\n% {'=' * 60}\n% {header_params_str}\n% {'=' * 60}\n\n"
+    separator = (
+        f"\n\n% {'=' * 60}\n"
+        f"% {header_params_str}\n"
+        f"% {serials_comment}\n"
+        f"% {'=' * 60}\n\n"
+    )
 
     table = _generate_table_merged(combined, ref_params)
 
@@ -335,6 +347,7 @@ def generate_latex_tables(runs_in_group: list[dict], group_index: int) -> str:
 def group_key_func(params: dict) -> tuple:
     """
     Group runs by all parameters EXCEPT n (which varies within a table).
+    UMAP hyperparameters are only included for non-PCA runs.
     """
     group_params = {
         "N",
@@ -345,10 +358,10 @@ def group_key_func(params: dict) -> tuple:
         "rts",
         "orientation",
         "pca",
-        "umap_n_neighbors",
-        "umap_min_dist",
-        "umap_metric",
     }
+    if not _is_pca(params):
+        group_params.update({"umap_n_neighbors", "umap_min_dist", "umap_metric"})
+
     return tuple(sorted((k, params.get(k)) for k in group_params))
 
 
@@ -383,8 +396,13 @@ def main():
     for group_index, (key, group_runs) in enumerate(sorted_groups):
         ref_params = group_runs[0]["params"]
         label = _generate_group_label(ref_params)
+
+        # Short hash of all run serials for traceability
+        serials = sorted(run["run_serial"] for run in group_runs)
+        serials_hash = hashlib.md5(",".join(serials).encode()).hexdigest()[:8]
+
         output_path = os.path.join(
-            OUTPUT_DIR, f"latex_table_group_{group_index}_{label}.tex"
+            OUTPUT_DIR, f"latex_table_group_{group_index}_{label}_h{serials_hash}.tex"
         )
 
         latex_content = generate_latex_tables(group_runs, group_index)
