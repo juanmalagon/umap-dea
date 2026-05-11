@@ -1,0 +1,2 @@
+N,M,n,alpha_1,gamma,sigma_u,rts,orientation,nr_simulations,seed,pca,umap_n_neighbors,umap_min_dist,umap_metric
+200,1,100,0.25,1.0,0.1,vrs,input,1000,42,True,15,0.1,euclidean

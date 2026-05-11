@@ -5,11 +5,10 @@ Steps:
   1. Recursively discover all CSV files across all subdirectories under /results/.
   2. Group files by UUID, deduplicating (files with same UUID are identical copies).
   3. Read each params_dict CSV to determine pca, umap_n_neighbors, and gamma.
-  4. Copy files to the target structure:
+  4. Move files to the target structure:
        results/gamma_XXX/pca_dea/           (if pca=True)
        results/gamma_XXX/umap_dea/k_XX/     (if pca=False)
   5. Verify the new structure has all data.
-  6. Delete all old /rubbish/ folders (simulation_results_*).
 """
 
 import os
@@ -38,7 +37,12 @@ def file_hash(path: Path) -> str:
 
 
 def gamma_to_str(gamma: str) -> str:
-    """Format gamma value for directory name, e.g. '0.5' -> '0p5'."""
+    """Format gamma value for directory name.
+    e.g. '0.5' -> '0p5', '1.0' -> '1', '2.0' -> '2'.
+    """
+    f = float(gamma)
+    if f == int(f):
+        return str(int(f))
     return gamma.replace(".", "p")
 
 
@@ -110,9 +114,14 @@ def group_and_deduplicate(csv_files: list[Path]) -> dict[str, list[Path]]:
         existing = uuid_candidates[uuid].get(filetype)
         if existing is not None and existing != fpath:
             # Same UUID and filetype found in multiple places — keep whichever we saw first
-            # (they should be identical; if not, log a warning)
             if file_hash(existing) != file_hash(fpath):
-                print(f"  WARNING: {fpath.name} differs from {existing.name} (same UUID). Keeping first.")
+                print(f"  WARNING: {fpath.name} differs from {existing.name} (same UUID). Keeping first, deleting duplicate.")
+            else:
+                print(f"  Deleting duplicate: {fpath}")
+            try:
+                fpath.unlink()
+            except Exception as e:
+                print(f"  ERROR deleting duplicate {fpath}: {e}")
         else:
             uuid_candidates[uuid][filetype] = fpath
 
@@ -134,14 +143,14 @@ def group_and_deduplicate(csv_files: list[Path]) -> dict[str, list[Path]]:
     return result
 
 
-# ── step 3 & 4: read params, copy to destination ────────────────────
+# ── step 3 & 4: read params, move to destination ────────────────────
 
-def copy_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]:
+def move_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]:
     """
-    Copy files to target structure. Returns (copied, skipped, errors).
+    Move files to target structure. Returns (moved, skipped, errors).
     """
-    copied = 0
-    skipped = 0
+    moved = 0
+    deleted_dup = 0
     errors = 0
 
     for uuid, files in sorted(uuid_files.items()):
@@ -168,21 +177,33 @@ def copy_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]
 
         for src_path in files:
             dest_path = dest_dir / src_path.name
+
+            # Skip if source is already at the correct destination
+            if src_path.resolve() == dest_path.resolve():
+                continue
+
             if dest_path.exists():
                 if file_hash(src_path) == file_hash(dest_path):
-                    skipped += 1
+                    # Identical file already at destination — delete the source duplicate
+                    print(f"  Deleting duplicate (already at destination): {src_path}")
+                    try:
+                        src_path.unlink()
+                        deleted_dup += 1
+                    except Exception as e:
+                        print(f"  ERROR deleting {src_path}: {e}")
+                        errors += 1
                     continue
                 else:
                     print(f"  OVERWRITING (content differs): {dest_path}")
                     dest_path.unlink()
             try:
-                shutil.copy2(str(src_path), str(dest_path))
-                copied += 1
+                shutil.move(str(src_path), str(dest_path))
+                moved += 1
             except Exception as e:
-                print(f"  ERROR copying {src_path.name}: {e}")
+                print(f"  ERROR moving {src_path.name}: {e}")
                 errors += 1
 
-    return copied, skipped, errors
+    return moved, deleted_dup, errors
 
 
 # ── step 5: verify ──────────────────────────────────────────────────
@@ -211,23 +232,71 @@ def verify_structure(original_groups: dict[str, list[Path]]) -> bool:
     return ok
 
 
-# ── step 6: delete old folders ──────────────────────────────────────
+# ── step 6: cleanup stray files and empty directories ────────────────
 
-RUBBISH_PATTERNS = re.compile(
-    r"^simulation_results_",
-    re.IGNORECASE,
+VALID_DIR_PATTERN = re.compile(
+    r"results/gamma_[^/]+/(?:pca_dea|umap_dea(?:/k_\d+)?)/"  # intentionally left off for Path matching
 )
 
 
-def delete_rubbish_folders(root: Path) -> list[Path]:
-    """Delete all top-level folders matching the rubbish pattern, return their paths."""
-    deleted: list[Path] = []
-    for entry in sorted(root.iterdir()):
-        if entry.is_dir() and RUBBISH_PATTERNS.match(entry.name):
-            print(f"  Deleting: {entry}")
-            shutil.rmtree(entry)
-            deleted.append(entry)
-    return deleted
+def is_inside_target_structure(file_path: Path) -> bool:
+    """Check if a file is inside a valid target directory under results/."""
+    try:
+        rel = str(file_path.relative_to(RESULTS_DIR))
+    except ValueError:
+        return False  # Not under RESULTS_DIR
+
+    parts = Path(rel).parts
+    if len(parts) < 2:
+        return False
+
+    # Must start with gamma_XXX
+    if not parts[0].startswith("gamma_"):
+        return False
+
+    # Second level: pca_dea or umap_dea
+    if parts[1] not in ("pca_dea", "umap_dea"):
+        return False
+
+    # If umap_dea, third level must be k_XX
+    if parts[1] == "umap_dea":
+        if len(parts) < 3 or not parts[2].startswith("k_"):
+            return False
+
+    return True
+
+
+def cleanup_strays(root: Path) -> tuple[int, int]:
+    """Delete CSV files outside the target structure and prune empty directories.
+    Returns (files_deleted, dirs_deleted).
+    """
+    files_deleted = 0
+
+    # Delete stray CSV files
+    for dirpath, _dirnames, filenames in os.walk(root, topdown=False):
+        dp = Path(dirpath)
+        for fn in filenames:
+            fp = dp / fn
+            if fn.endswith(".csv") and not is_inside_target_structure(fp):
+                print(f"  Deleting stray file: {fp.relative_to(RESULTS_DIR)}")
+                fp.unlink()
+                files_deleted += 1
+
+    # Prune empty directories (bottom-up)
+    dirs_deleted = 0
+    for dirpath, dirnames, _filenames in os.walk(root, topdown=False):
+        dp = Path(dirpath)
+        if dp == root:
+            continue
+        try:
+            # Only remove if empty (no files, no subdirs)
+            if not any(dp.iterdir()):
+                dp.rmdir()
+                dirs_deleted += 1
+        except OSError:
+            pass
+
+    return files_deleted, dirs_deleted
 
 
 # ── main ────────────────────────────────────────────────────────────
@@ -249,9 +318,9 @@ def main():
     unique_csv_count = sum(len(v) for v in uuid_groups.values())
     print(f"  Total CSV files (after dedup): {unique_csv_count}")
 
-    print("\nStep 3 & 4: Reading params and copying files to clean structure…")
-    copied, skipped, errors = copy_to_structure(uuid_groups)
-    print(f"  Copied: {copied}, Skipped (already present): {skipped}, Errors: {errors}")
+    print("\nStep 3 & 4: Reading params and moving files to clean structure…")
+    moved, deleted_dup, errors = move_to_structure(uuid_groups)
+    print(f"  Moved: {moved}, Duplicates deleted: {deleted_dup}, Errors: {errors}")
 
     print("\nStep 5: Verifying new structure…")
     if verify_structure(uuid_groups):
@@ -260,14 +329,12 @@ def main():
         print("  Some files missing in the new structure ✗ — aborting cleanup.")
         return
 
-    print("\nStep 6: Deleting old rubbish folders…")
-    deleted = delete_rubbish_folders(RESULTS_DIR)
-    print(f"  Deleted {len(deleted)} folders: {[d.name for d in deleted]}")
+    print("\nStep 6: Cleaning up stray files and empty directories…")
+    stray_files, stray_dirs = cleanup_strays(RESULTS_DIR)
+    print(f"  Stray files deleted: {stray_files}, Empty directories removed: {stray_dirs}")
 
     print("\nDone. Final structure:")
     for dirpath, dirnames, filenames in os.walk(RESULTS_DIR):
-        if any(RUBBISH_PATTERNS.match(Path(dirpath).name) for _ in [1]):
-            continue
         level = Path(dirpath).relative_to(RESULTS_DIR).parts
         indent = "  " * (len(level))
         print(f"{indent}{Path(dirpath).name}/")
