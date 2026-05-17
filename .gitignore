@@ -177,7 +177,7 @@ cython_debug/
 # Visual Studio Code
 .vscode/
 
-results/
+# results/
 results_grid_search/
 results_grid_search/temp_config_*.json
 tex/

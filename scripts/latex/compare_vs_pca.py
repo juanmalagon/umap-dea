@@ -16,11 +16,13 @@ import re
 import pandas as pd
 import numpy as np
 
+from _utils import gamma_to_dirname
+
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 RESULTS_DIR = os.path.join(_PROJECT_ROOT, "results")
-OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "tex", "comparison")
+OUTPUT_BASE_DIR = os.path.join(_PROJECT_ROOT, "tex")
 
 
 def extract_uuid(filename):
@@ -89,7 +91,14 @@ def bold_pct_if_better(val_a, val_b, best_direction):
 
 
 def generate_table(rows, rts_label):
-    """Generate a UMAP-DEA vs PCA-DEA comparison LaTeX table (both at sqrt level)."""
+    """Generate a UMAP-DEA vs PCA-DEA comparison LaTeX table (both at sqrt level).
+
+    Note: The ``% Non-discriminating`` metric is intentionally omitted from this
+    table because the goal is to compare dimensionality-reduction methods (UMAP
+    vs PCA), not to evaluate discrimination quality.  The metric is still computed
+    and stored in the ``non_discrim`` field of each experiment record for possible
+    use in other analyses.
+    """
     caption = (
         f"UMAP-DEA vs PCA-DEA "
         f"(both $d=\\sqrt{{N}}$). {rts_label.upper()}"
@@ -142,7 +151,7 @@ def generate_table(rows, rts_label):
 
 
 def main():
-    summary_files = sorted(glob.glob(os.path.join(RESULTS_DIR, "summary_df_*.csv")))
+    summary_files = sorted(glob.glob(os.path.join(RESULTS_DIR, "**", "summary_df_*.csv"), recursive=True))
 
     experiments = []
 
@@ -151,7 +160,7 @@ def main():
         if not uuid:
             continue
 
-        params_path = os.path.join(RESULTS_DIR, f"params_dict_{uuid}.csv")
+        params_path = os.path.join(os.path.dirname(summary_path), f"params_dict_{uuid}.csv")
         if not os.path.exists(params_path):
             continue
 
@@ -177,6 +186,7 @@ def main():
             "n": int(params["n"]),
             "rts": params["rts"],
             "pca": params["pca"],
+            "gamma": params.get("gamma", "unknown"),
             "mae_mean": sqrt_row["mae_mean"],
             "spearman": sqrt_row.get("spearmanr_mean", np.nan),
             "pearson": sqrt_row.get("pearsonr_mean", np.nan),
@@ -207,24 +217,29 @@ def main():
     umap = umap.drop(columns=["pca"])
     pca = pca.drop(columns=["pca"])
 
-    merged = pd.merge(umap, pca, on=["N", "n", "rts"], how="inner")
+    merged = pd.merge(umap, pca, on=["N", "n", "rts", "gamma"], how="inner")
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    # Group by gamma
+    for gamma_val, gamma_merged in merged.groupby("gamma"):
+        # Format gamma for directory name
+        gamma_str = gamma_to_dirname(gamma_val)
+        comparison_dir = os.path.join(OUTPUT_BASE_DIR, f"gamma_{gamma_str}", "comparison")
+        os.makedirs(comparison_dir, exist_ok=True)
 
-    for rts in ["crs", "vrs"]:
-        rts_df = merged[merged["rts"] == rts].sort_values(["N", "n"])
-        if rts_df.empty:
-            print(f"No matched UMAP/PCA pairs for {rts.upper()}, skipping.")
-            continue
+        for rts in ["crs", "vrs"]:
+            rts_df = gamma_merged[gamma_merged["rts"] == rts].sort_values(["N", "n"])
+            if rts_df.empty:
+                print(f"No matched UMAP/PCA pairs for gamma={gamma_val} {rts.upper()}, skipping.")
+                continue
 
-        rows = rts_df.to_dict("records")
-        table = generate_table(rows, rts)
+            rows = rts_df.to_dict("records")
+            table = generate_table(rows, rts)
 
-        filename = f"umap_sqrt_vs_pca_sqrt_{rts}.tex"
-        filepath = os.path.join(OUTPUT_DIR, filename)
-        with open(filepath, "w") as f:
-            f.write(table)
-        print(f"Wrote {filepath} (matched {len(rows)} UMAP/PCA pairs)")
+            filename = f"umap_sqrt_vs_pca_sqrt_{rts}.tex"
+            filepath = os.path.join(comparison_dir, filename)
+            with open(filepath, "w") as f:
+                f.write(table)
+            print(f"Wrote {filepath} (matched {len(rows)} UMAP/PCA pairs)")
 
 
 if __name__ == "__main__":
