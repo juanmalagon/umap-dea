@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-generate_comparison_umap_vs_conventional.py
+compare_vs_conventional.py
 
 Reads summary_df_*.csv and params_dict_*.csv from results/.
 For each experiment, picks the sqrt dimensionality reduction level
@@ -13,12 +13,11 @@ Output: tex/comparison/umap_sqrt_vs_conventional_{crs,vrs}.tex
 
 import glob
 import os
-import re
 
 import pandas as pd
 import numpy as np
 
-from _utils import gamma_to_dirname
+from _utils import gamma_to_dirname, extract_uuid, fmt_val, fmt_pct, bold_if_better, bold_pct_if_better, format_hyperparams_suffix
 
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,85 +26,26 @@ RESULTS_DIR = os.path.join(_PROJECT_ROOT, "results")
 OUTPUT_BASE_DIR = os.path.join(_PROJECT_ROOT, "tex")
 
 
-def extract_uuid(filename):
-    match = re.search(r"(?:summary_df|params_dict)_([0-9a-fA-F-]+)\.csv", filename)
-    if match:
-        return match.group(1)
-    return ""
+def generate_table(rows, rts_label, method_label, k_val=None, hyperparams_suffix=""):
+    """Generate a single comparison LaTeX table for a given (rts, method, optional k)."""
 
-
-def fmt_val(val, ndigits=4):
-    """Format a single numeric value."""
-    if pd.isna(val):
-        return "—"
-    return f"{val:.{ndigits}f}"
-
-
-def fmt_pct(val):
-    """Format as percentage with one decimal."""
-    if pd.isna(val):
-        return "—"
-    return f"{val * 100:.1f}\\%"
-
-
-def bold_if_better(val_best, val_orig, best_direction, ndigits=4):
-    """Return (best_str, orig_str) with the better value bolded.
-    best_direction: 'min' means lower is better, 'max' means higher is better."""
-    if pd.isna(val_best) or pd.isna(val_orig):
-        return fmt_val(val_best, ndigits), fmt_val(val_orig, ndigits)
-
-    best_str = f"{val_best:.{ndigits}f}"
-    orig_str = f"{val_orig:.{ndigits}f}"
-
-    if best_direction == "min":
-        better_best = val_best <= val_orig
+    if k_val is not None:
+        caption = (
+            f"{method_label}-DEA ($k={k_val}$, $d=\\sqrt{{N}}$) vs Conventional DEA "
+            f"(no reduction). {rts_label.upper()}{hyperparams_suffix}"
+        )
+        label = f"tab:{method_label.lower()}_k{k_val}_sqrt_vs_conventional_{rts_label}"
     else:
-        better_best = val_best >= val_orig
-
-    if better_best:
-        best_str = f"\\textbf{{{best_str}}}"
-    else:
-        orig_str = f"\\textbf{{{orig_str}}}"
-
-    return best_str, orig_str
-
-
-def bold_pct_if_better(val_best, val_orig, best_direction):
-    """Same for percentage values (lower is better for non-discriminating)."""
-    if pd.isna(val_best) or pd.isna(val_orig):
-        return fmt_pct(val_best), fmt_pct(val_orig)
-
-    pct_best = val_best * 100
-    pct_orig = val_orig * 100
-    best_str = f"{pct_best:.1f}\\%"
-    orig_str = f"{pct_orig:.1f}\\%"
-
-    if best_direction == "min":
-        better_best = pct_best <= pct_orig
-    else:
-        better_best = pct_best >= pct_orig
-
-    if better_best:
-        best_str = f"\\textbf{{{best_str}}}"
-    else:
-        orig_str = f"\\textbf{{{orig_str}}}"
-
-    return best_str, orig_str
-
-
-def generate_table(rows, rts_label, method_label):
-    """Generate a single comparison LaTeX table for a given (rts, method)."""
-
-    caption = (
-        f"{method_label}-DEA ($d=\\sqrt{{N}}$) vs Conventional DEA "
-        f"(no reduction). {rts_label.upper()}"
-    )
-    label = f"tab:{method_label.lower()}_sqrt_vs_conventional_{rts_label}"
+        caption = (
+            f"{method_label}-DEA ($d=\\sqrt{{N}}$) vs Conventional DEA "
+            f"(no reduction). {rts_label.upper()}{hyperparams_suffix}"
+        )
+        label = f"tab:{method_label.lower()}_sqrt_vs_conventional_{rts_label}"
 
     lines = []
     lines.append("\\begin{table}[htbp]")
     lines.append("\\centering")
-    lines.append("\\footnotesize")
+    lines.append("\\scriptsize")
     lines.append(f"\\caption{{{caption}\\label{{{label}}}}}")
     lines.append("\\begin{tabular}{@{}c c c c c c c c c c c c@{}}")
     lines.append("\\toprule")
@@ -206,13 +146,19 @@ def main():
         orig_row = orig_rows.iloc[0]
 
         nr_sim = int(params.get("nr_simulations", 1000))
+        is_pca = bool(params.get("pca", False))
+        k_val = None if is_pca else int(float(params.get("umap_n_neighbors", 15)))
 
         experiments.append({
             "N": int(params["N"]),
             "n": int(params["n"]),
             "rts": params["rts"],
             "pca": params["pca"],
+            "k": k_val,
             "gamma": params.get("gamma", "unknown"),
+            "sigma_u": params.get("sigma_u", None),
+            "alpha_1": params.get("alpha_1", None),
+            "M": params.get("M", None),
             # Sqrt metrics
             "sqrt_mae_mean": sqrt_row["mae_mean"],
             "sqrt_mae_std": sqrt_row["mae_std"],
@@ -238,23 +184,48 @@ def main():
         comparison_dir = os.path.join(OUTPUT_BASE_DIR, f"gamma_{gamma_str}", "comparison")
         os.makedirs(comparison_dir, exist_ok=True)
 
-        # Generate 4 tables: {umap,pca} x {crs,vrs}
+        # Generate tables: {umap,pca} x {crs,vrs}, with k subgroups for UMAP
         for method, method_label in [(True, "PCA"), (False, "UMAP")]:
             method_df = gamma_df[gamma_df["pca"] == method]
-            for rts in ["crs", "vrs"]:
-                rts_df = method_df[method_df["rts"] == rts].sort_values(["N", "n"])
-                if rts_df.empty:
-                    print(f"No data for gamma={gamma_val} {method_label} {rts.upper()}, skipping.")
-                    continue
+            if method_df.empty:
+                continue
 
-                rows = rts_df.to_dict("records")
-                table = generate_table(rows, rts, method_label)
+            # For UMAP, further group by k; for PCA, use a single dummy group
+            if method:
+                # PCA: no k parameter
+                k_groups = [(None, method_df)]
+            else:
+                # UMAP: split by k (cast to int since NaN -> float column)
+                k_groups = [(int(k), grp) for k, grp in method_df.groupby("k")]
 
-                filename = f"{method_label.lower()}_sqrt_vs_conventional_{rts}.tex"
-                filepath = os.path.join(comparison_dir, filename)
-                with open(filepath, "w") as f:
-                    f.write(table)
-                print(f"Wrote {filepath}")
+            for k_val, k_df in k_groups:
+                for rts in ["crs", "vrs"]:
+                    rts_df = k_df[k_df["rts"] == rts].sort_values(["N", "n"])
+                    if rts_df.empty:
+                        print(f"No data for gamma={gamma_val} {method_label} k={k_val} {rts.upper()}, skipping.")
+                        continue
+
+                    rows = rts_df.to_dict("records")
+                    # Extract shared hyperparams from the first row
+                    first_row = rows[0]
+                    shared_params = {
+                        "gamma": first_row.get("gamma"),
+                        "sigma_u": first_row.get("sigma_u"),
+                        "alpha_1": first_row.get("alpha_1"),
+                        "M": first_row.get("M"),
+                        "pca": method,  # needed to skip UMAP-specific params
+                    }
+                    hyperparams_suffix = format_hyperparams_suffix(shared_params, include_method_specific=False)
+                    table = generate_table(rows, rts, method_label, k_val=k_val, hyperparams_suffix=hyperparams_suffix)
+
+                    if k_val is not None:
+                        filename = f"{method_label.lower()}_k{k_val}_sqrt_vs_conventional_{rts}.tex"
+                    else:
+                        filename = f"{method_label.lower()}_sqrt_vs_conventional_{rts}.tex"
+                    filepath = os.path.join(comparison_dir, filename)
+                    with open(filepath, "w") as f:
+                        f.write(table)
+                    print(f"Wrote {filepath}")
 
 
 if __name__ == "__main__":

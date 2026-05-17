@@ -17,6 +17,8 @@ import hashlib
 import os
 import re
 
+from _utils import gamma_to_dirname
+
 # Paths
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
@@ -26,18 +28,16 @@ TEX_BASE_DIR = os.path.join(_PROJECT_ROOT, "tex")
 HEADER_RTS_RE = re.compile(r"^%\s+(CRS|VRS)[,\s]")
 CAPTION_METHOD_RE = re.compile(r"\\caption\{.*(PCA-DEA|UMAP-DEA)")
 N_RE = re.compile(r"N=(\d+)")
+K_RE = re.compile(r"nn_(\d+)")
 
 
 def parse_table_group_file(filepath: str):
-    # Returns dict (with keys 'method', 'rts', 'N') or None
+    """Parse a latex_table_group_*.tex file.
+
+    Returns a dict with keys 'method', 'rts', 'N', 'k' (k is None
+    for PCA files), or None if parsing fails.
     """
-    Parse a latex_table_group_*.tex file to extract:
-      - method: "pca" or "umap"
-      - rts: "crs" or "vrs"
-      - N: integer (number of inputs)
-    Returns None if parsing fails.
-    """
-    result = {"method": None, "rts": None, "N": None}
+    result = {"method": None, "rts": None, "N": None, "k": None}
 
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
@@ -91,21 +91,32 @@ def parse_table_group_file(filepath: str):
             print(f"  Warning: cannot determine N for {filepath}")
             return None
 
+    # Parse k (UMAP n_neighbors) from filename
+    basename = os.path.basename(filepath)
+    k_match = K_RE.search(basename)
+    if k_match:
+        result["k"] = int(k_match.group(1))
+
     return result
 
 
-def generate_subsection(method_key: str, rts_key: str, files: list[tuple[int, str]], gamma_dir: str) -> tuple[str, str]:
-    """
-    Generate the LaTeX content for one subsection file.
+def generate_subsection(method_key: str, rts_key: str, k_val: int | None,
+                        files: list[tuple[int, str]], gamma_dir: str) -> tuple[str, str]:
+    """Generate the LaTeX content for one subsection file.
 
     Parameters:
       method_key: "pca" or "umap"
       rts_key: "crs" or "vrs"
+      k_val: k (n_neighbors) value for UMAP, None for PCA
       files: sorted list of (N, filename) tuples, already sorted by N
       gamma_dir: path to the gamma subdirectory containing the table files
     """
     method_display = "PCA-DEA" if method_key == "pca" else "UMAP-DEA"
     rts_display = rts_key.upper()
+
+    # Extract gamma directory key from gamma_dir path (e.g. "gamma_0p5" → "0p5")
+    gamma_dir_name = os.path.basename(gamma_dir)
+    gamma_key = gamma_dir_name.replace("gamma_", "", 1)
 
     # Build the subsection content
     lines = []
@@ -120,7 +131,14 @@ def generate_subsection(method_key: str, rts_key: str, files: list[tuple[int, st
     lines.append(f"% Hash: {short_hash}")
     lines.append("% ============================================================")
     lines.append("")
-    lines.append(f"\\subsection{{{method_display} {rts_display}}}\\label{{apd:{method_key}_{rts_key}}}")
+    # Build subsection title and label — include k for UMAP
+    if k_val is not None:
+        title = f"{method_display} {rts_display} ($k={k_val}$)"
+        label = f"apd:{gamma_key}_{method_key}_k{k_val}_{rts_key}"
+    else:
+        title = f"{method_display} {rts_display}"
+        label = f"apd:{gamma_key}_{method_key}_{rts_key}"
+    lines.append(f"\\subsection{{{title}}}\\label{{{label}}}")
     lines.append("")
 
     for _, fname in files:
@@ -173,25 +191,18 @@ def main():
 
         print(f"  Found {len(all_files)} table group files.")
 
-        # Parse each file
-        buckets: dict[tuple[str, str], list[tuple[int, str]]] = {
-            ("pca", "crs"): [],
-            ("pca", "vrs"): [],
-            ("umap", "crs"): [],
-            ("umap", "vrs"): [],
-        }
+        # Parse each file into (method, rts, k) buckets
+        from collections import defaultdict
+        buckets: dict[tuple[str, str, int | None], list[tuple[int, str]]] = defaultdict(list)
 
         for fname in sorted(all_files):
             filepath = os.path.join(gamma_dir, fname)
             info = parse_table_group_file(filepath)
             if info is None:
                 continue
-            key = (info["method"], info["rts"])
-            if key not in buckets:
-                print(f"    Warning: unexpected key {key} for {fname}, skipping")
-                continue
+            key = (info["method"], info["rts"], info["k"])
             buckets[key].append((info["N"], fname))
-            print(f"    {fname}: method={info['method']}, rts={info['rts']}, N={info['N']}")
+            print(f"    {fname}: method={info['method']}, rts={info['rts']}, N={info['N']}, k={info['k']}")
 
         # Sort each bucket by N (ascending)
         for key in buckets:
@@ -201,12 +212,15 @@ def main():
         subsections_dir = os.path.join(gamma_dir, "subsections")
         os.makedirs(subsections_dir, exist_ok=True)
 
-        for (method_key, rts_key), files in buckets.items():
+        for (method_key, rts_key, k_val), files in buckets.items():
             if not files:
                 continue
 
-            content, short_hash = generate_subsection(method_key, rts_key, files, gamma_dir)
-            out_fname = f"appendix_{method_key}_{rts_key}_{short_hash}.tex"
+            content, short_hash = generate_subsection(method_key, rts_key, k_val, files, gamma_dir)
+            if k_val is not None:
+                out_fname = f"appendix_{method_key}_k{k_val}_{rts_key}_{short_hash}.tex"
+            else:
+                out_fname = f"appendix_{method_key}_{rts_key}_{short_hash}.tex"
             out_path = os.path.join(subsections_dir, out_fname)
 
             with open(out_path, "w", encoding="utf-8") as f:
