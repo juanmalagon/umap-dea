@@ -18,11 +18,13 @@ import re
 import pandas as pd
 import numpy as np
 
+from _utils import gamma_to_dirname
+
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 RESULTS_DIR = os.path.join(_PROJECT_ROOT, "results")
-OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "tex", "comparison")
+OUTPUT_BASE_DIR = os.path.join(_PROJECT_ROOT, "tex")
 
 
 def extract_uuid(filename):
@@ -169,7 +171,7 @@ def generate_table(rows, rts_label, method_label):
 
 
 def main():
-    summary_files = sorted(glob.glob(os.path.join(RESULTS_DIR, "summary_df_*.csv")))
+    summary_files = sorted(glob.glob(os.path.join(RESULTS_DIR, "**", "summary_df_*.csv"), recursive=True))
 
     experiments = []
 
@@ -178,7 +180,7 @@ def main():
         if not uuid:
             continue
 
-        params_path = os.path.join(RESULTS_DIR, f"params_dict_{uuid}.csv")
+        params_path = os.path.join(os.path.dirname(summary_path), f"params_dict_{uuid}.csv")
         if not os.path.exists(params_path):
             continue
 
@@ -210,6 +212,7 @@ def main():
             "n": int(params["n"]),
             "rts": params["rts"],
             "pca": params["pca"],
+            "gamma": params.get("gamma", "unknown"),
             # Sqrt metrics
             "sqrt_mae_mean": sqrt_row["mae_mean"],
             "sqrt_mae_std": sqrt_row["mae_std"],
@@ -228,25 +231,30 @@ def main():
 
     df = pd.DataFrame(experiments)
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    # Group by gamma
+    for gamma_val, gamma_df in df.groupby("gamma"):
+        # Format gamma for directory name
+        gamma_str = gamma_to_dirname(gamma_val)
+        comparison_dir = os.path.join(OUTPUT_BASE_DIR, f"gamma_{gamma_str}", "comparison")
+        os.makedirs(comparison_dir, exist_ok=True)
 
-    # Generate 4 tables: {umap,pca} x {crs,vrs}
-    for method, method_label in [(True, "PCA"), (False, "UMAP")]:
-        method_df = df[df["pca"] == method]
-        for rts in ["crs", "vrs"]:
-            rts_df = method_df[method_df["rts"] == rts].sort_values(["N", "n"])
-            if rts_df.empty:
-                print(f"No data for {method_label} {rts.upper()}, skipping.")
-                continue
+        # Generate 4 tables: {umap,pca} x {crs,vrs}
+        for method, method_label in [(True, "PCA"), (False, "UMAP")]:
+            method_df = gamma_df[gamma_df["pca"] == method]
+            for rts in ["crs", "vrs"]:
+                rts_df = method_df[method_df["rts"] == rts].sort_values(["N", "n"])
+                if rts_df.empty:
+                    print(f"No data for gamma={gamma_val} {method_label} {rts.upper()}, skipping.")
+                    continue
 
-            rows = rts_df.to_dict("records")
-            table = generate_table(rows, rts, method_label)
+                rows = rts_df.to_dict("records")
+                table = generate_table(rows, rts, method_label)
 
-            filename = f"{method_label.lower()}_sqrt_vs_conventional_{rts}.tex"
-            filepath = os.path.join(OUTPUT_DIR, filename)
-            with open(filepath, "w") as f:
-                f.write(table)
-            print(f"Wrote {filepath}")
+                filename = f"{method_label.lower()}_sqrt_vs_conventional_{rts}.tex"
+                filepath = os.path.join(comparison_dir, filename)
+                with open(filepath, "w") as f:
+                    f.write(table)
+                print(f"Wrote {filepath}")
 
 
 if __name__ == "__main__":

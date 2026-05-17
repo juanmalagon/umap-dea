@@ -15,11 +15,12 @@ import hashlib
 import pandas as pd
 import numpy as np
 
-import os
+from _utils import gamma_to_dirname, get_output_subpath_from_params
+
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(_SCRIPT_DIR))
 RESULTS_DIR = os.path.join(_PROJECT_ROOT, "results")
-OUTPUT_DIR = os.path.join(_PROJECT_ROOT, "tex")
+OUTPUT_BASE_DIR = os.path.join(_PROJECT_ROOT, "tex")
 
 
 def load_all_runs(results_dir: str) -> list[dict]:
@@ -27,7 +28,7 @@ def load_all_runs(results_dir: str) -> list[dict]:
     Scan results_dir for params_dict_*.csv and summary_df_*.csv pairs,
     match them by run_serial (UUID), and return a list of combined records.
     """
-    params_files = glob.glob(os.path.join(results_dir, "params_dict_*.csv"))
+    params_files = glob.glob(os.path.join(results_dir, "**", "params_dict_*.csv"), recursive=True)
 
     runs = []
     for params_path in params_files:
@@ -44,7 +45,7 @@ def load_all_runs(results_dir: str) -> list[dict]:
         params_dict = params_df.iloc[0].to_dict()
 
         summary_path = os.path.join(
-            results_dir, f"summary_df_{run_serial}.csv"
+            os.path.dirname(params_path), f"summary_df_{run_serial}.csv"
         )
         if not os.path.exists(summary_path):
             print(f"Warning: missing summary file {summary_path}, skipping")
@@ -75,8 +76,16 @@ def _format_param_value(key: str, value) -> str:
 
 def _format_number(value) -> str:
     """Format a numeric value for LaTeX; show '---' for NaN (e.g. VRS degeneracy)."""
-    if pd.isna(value) or (isinstance(value, float) and np.isnan(value)):
-        return "---"
+    try:
+        if pd.isna(value):
+            return "---"
+    except (TypeError, ValueError):
+        pass
+    try:
+        if isinstance(value, float) and np.isnan(value):
+            return "---"
+    except (TypeError, ValueError):
+        pass
     return f"{value:.4f}"
 
 
@@ -264,7 +273,9 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
 
         n_str = str(int(current_n))
         method = _dim_reduction_label(row["dim_reduction_level"])
-        d_str = str(int(row["dims"]))
+        # Cast to float first to handle both int and float-like columns
+        # (some parquet sources may store dims as float).
+        d_str = str(int(float(row["dims"])))
 
         # Accuracy / correlation metrics
         mae_mean = _format_number(row["mae_mean"])
@@ -279,7 +290,12 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
         # Discrimination metrics
         nr_eff_mean = _format_number(row["nr_efficient_mean"])
         nr_eff_std = _format_number(row["nr_efficient_std"])
-        non_discrim_pct = row["spearmanr_warning_count"] / nr_simulations * 100
+        warning_count = row["spearmanr_warning_count"]
+        non_discrim_pct = (
+            float(warning_count) / nr_simulations * 100
+            if pd.notna(warning_count) and nr_simulations > 0
+            else float("nan")
+        )
         non_discrim_str = f"{non_discrim_pct:.1f}\\%"
 
         lines.append(
@@ -389,8 +405,6 @@ def main():
 
     print(f"Found {len(groups)} distinct groups of hyperparameter configurations")
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
     sorted_groups = sorted(
         groups.items(),
         key=lambda item: item[1][0]["params"].get("N", 0),
@@ -400,12 +414,19 @@ def main():
         ref_params = group_runs[0]["params"]
         label = _generate_group_label(ref_params)
 
+        # Determine gamma subdirectory and method-specific subpath
+        gamma_val = ref_params.get("gamma", "unknown")
+        gamma_dir = f"gamma_{gamma_to_dirname(gamma_val)}"
+        method_subpath = get_output_subpath_from_params(ref_params)
+        output_dir = os.path.join(OUTPUT_BASE_DIR, gamma_dir, method_subpath)
+        os.makedirs(output_dir, exist_ok=True)
+
         # Short hash of all run serials for traceability
         serials = sorted(run["run_serial"] for run in group_runs)
         serials_hash = hashlib.md5(",".join(serials).encode()).hexdigest()[:8]
 
         output_path = os.path.join(
-            OUTPUT_DIR, f"latex_table_group_{group_index}_{label}_h{serials_hash}.tex"
+            output_dir, f"latex_table_group_{group_index}_{label}_h{serials_hash}.tex"
         )
 
         latex_content = generate_latex_tables(group_runs, group_index)
