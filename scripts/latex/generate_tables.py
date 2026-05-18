@@ -81,11 +81,6 @@ def _format_number(value) -> str:
             return "---"
     except (TypeError, ValueError):
         pass
-    try:
-        if isinstance(value, float) and np.isnan(value):
-            return "---"
-    except (TypeError, ValueError):
-        pass
     return f"{value:.4f}"
 
 
@@ -140,10 +135,17 @@ def _generate_group_label(params: dict) -> str:
 
 
 def _format_param_value_for_filename(value) -> str:
-    """Format a param value for safe use in a filename."""
+    """Format a param value for safe use in a filename.
+
+    Integer-valued floats (e.g. 1.0) are formatted without a decimal point
+    so that gamma_to_dirname and _generate_group_label produce consistent
+    directory and file names.  e.g. '1.0' -> '1', '0.5' -> '0p5'.
+    """
     if isinstance(value, bool):
         return "True" if value else "False"
     if isinstance(value, float):
+        if value == int(value):
+            return str(int(value))
         return f"{value:g}".replace(".", "p")
     return str(value).replace(".", "p").replace("_", "")
 
@@ -423,7 +425,7 @@ def main():
 
         # Short hash of all run serials for traceability
         serials = sorted(run["run_serial"] for run in group_runs)
-        serials_hash = hashlib.md5(",".join(serials).encode()).hexdigest()[:8]
+        serials_hash = hashlib.sha256(",".join(serials).encode()).hexdigest()[:8]
 
         output_path = os.path.join(
             output_dir, f"latex_table_group_{group_index}_{label}_h{serials_hash}.tex"
