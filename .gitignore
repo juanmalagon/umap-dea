@@ -177,5 +177,8 @@ cython_debug/
 # Visual Studio Code
 .vscode/
 
-**/*.csv
-# **/*.json
+# results/
+results_grid_search/
+results_grid_search/temp_config_*.json
+tex/
+analysis/
