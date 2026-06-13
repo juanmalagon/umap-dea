@@ -3,14 +3,14 @@
     "M": 1,
     "n": 200,
     "alpha_1": 0.25,
-    "gamma": 1,
+    "gamma": 0.5,
     "sigma_u": 0.1,
-    "rts": "crs",
+    "rts": "vrs",
     "orientation": "input",
     "nr_simulations": 1000,
     "seed": 42,
     "pca": false,
-    "umap_n_neighbors": 10,
+    "umap_n_neighbors": 15,
     "umap_min_dist": 0.1,
     "umap_metric": "euclidean"
 }

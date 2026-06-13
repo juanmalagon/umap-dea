@@ -60,7 +60,20 @@ At a high level, a simulation run follows this workflow:
 
 ## Installation
 
-You can install the project in either of these ways.
+> **⚠️ Important:** Always install this project inside an isolated Python virtual
+> environment to avoid polluting your base Python installation.
+
+### Prerequisite: create and activate a virtual environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+*On Windows, use `.venv\Scripts\Activate.ps1` (PowerShell) or
+`.venv\Scripts\activate.bat` (cmd).*
+
+Then proceed with one of the options below.
 
 ### Option 1: install from `pyproject.toml`
 
