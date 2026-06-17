@@ -4,8 +4,13 @@ Generate LaTeX tables from simulation results.
 
 Reads all params_dict_*.csv and summary_df_*.csv pairs from the results folder,
 groups runs by common hyperparameters (excluding n, which becomes the row variable),
-and outputs one .tex file per group containing a single sidewaystable (landscape)
-that merges accuracy, correlation, and discrimination metrics.
+and outputs one .tex file per group containing:
+
+1. A sidewaystable (landscape) with accuracy, correlation, and discrimination
+   metrics (mean and standard deviation).
+
+2. A standard table (portrait) with accuracy, correlation, and discrimination
+   metrics (mean only, no standard deviations, \\scriptsize font).
 """
 
 import os
@@ -318,15 +323,126 @@ def _generate_table_merged(combined: pd.DataFrame, ref_params: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+#  Standard (portrait) table – Means only, no standard deviations
+# ---------------------------------------------------------------------------
+
+def _generate_table_standard(combined: pd.DataFrame, ref_params: dict) -> str:
+    """
+    Generate a standard LaTeX table (portrait, not rotated) with means only.
+    Uses \\scriptsize font and compact column spacing to fit the page width.
+
+    Columns (9 total):
+      n | Method | d |
+      MAE | Spearman ρ | Pearson r | Kendall τ |
+      Efficient DMUs | % Non-discrim.
+    """
+    lines = []
+    lines.append(r"\begin{table}[htbp]")
+    lines.append(r"\centering")
+    lines.append(r"\scriptsize")
+    lines.append(r"\setlength{\tabcolsep}{3pt}")
+
+    header_params_str = _format_header_params(ref_params)
+    rts_lower = ref_params.get("rts", "unknown").lower()
+    pca_suffix = "_pca" if ref_params.get("pca", False) else "_umap"
+    label_safe = f"tab:std_N_{ref_params['N']}_{rts_lower}{pca_suffix}"
+
+    dea_type = "PCA-DEA" if ref_params.get("pca", False) else "UMAP-DEA"
+    lines.append(
+        r"\caption{Accuracy, correlation, and discrimination metrics (mean values) "
+        + dea_type + r".\\ "
+        + header_params_str
+        + r"\label{" + label_safe + r"}}"
+    )
+
+    # 9 columns: l l c + 6 c
+    lines.append(
+        r"\begin{tabular}{@{}l l c c c c c c c@{}}"
+    )
+    lines.append(r"\toprule")
+
+    # --- Two-level header with \cmidrule grouping ---
+
+    # Row 1: Super-group labels
+    lines.append(
+        r"& & & "
+        r"\multicolumn{4}{c}{Accuracy and correlation} & "
+        r"\multicolumn{2}{c}{Discrimination} \\"
+    )
+    lines.append(r"\cmidrule(lr){4-7} \cmidrule(lr){8-9}")
+
+    # Row 2: Individual metric names
+    lines.append(
+        r"\(n\) & Method & \(d\) & "
+        r"MAE & "
+        r"Spearman \(\rho\) & "
+        r"Pearson \(r\) & "
+        r"Kendall \(\tau\) & "
+        r"Efficient DMUs & "
+        r"\% Non-discrim. \\"
+    )
+    lines.append(r"\midrule")
+
+    nr_simulations = ref_params.get("nr_simulations", 1000)
+
+    # Data rows
+    prev_n = None
+    for _, row in combined.iterrows():
+        current_n = row["n"]
+        if prev_n is not None and current_n != prev_n:
+            lines.append(r"\addlinespace")
+
+        n_str = str(int(current_n))
+        method = _dim_reduction_label(row["dim_reduction_level"])
+        d_str = str(int(float(row["dims"])))
+
+        # Accuracy / correlation metrics (means only, no std devs)
+        mae_mean = _format_number(row["mae_mean"])
+        spr_mean = _format_number(row["spearmanr_mean"])
+        ppr_mean = _format_number(row["pearsonr_mean"])
+        kt_mean = _format_number(row["kendalltau_mean"])
+
+        # Discrimination metrics
+        nr_eff_mean = _format_number(row["nr_efficient_mean"])
+        warning_count = row["spearmanr_warning_count"]
+        non_discrim_pct = (
+            float(warning_count) / nr_simulations * 100
+            if pd.notna(warning_count) and nr_simulations > 0
+            else float("nan")
+        )
+        non_discrim_str = f"{non_discrim_pct:.1f}\\%"
+
+        lines.append(
+            f"{n_str} & {method} & {d_str} & "
+            f"{mae_mean} & "
+            f"{spr_mean} & "
+            f"{ppr_mean} & "
+            f"{kt_mean} & "
+            f"{nr_eff_mean} & "
+            f"{non_discrim_str} \\\\"
+        )
+        prev_n = current_n
+
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\end{table}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 #  Combined generator
 # ---------------------------------------------------------------------------
 
 def generate_latex_tables(runs_in_group: list[dict], group_index: int) -> str:
     """
-    Generate a single LaTeX sidewaystable (landscape) for a group of runs,
+    Generate LaTeX tables (sidewaystable + standard) for a group of runs,
     merging accuracy, correlation, and discrimination metrics.
 
     Runs in the group share the same hyperparameters (except n).
+
+    Produces two tables in the same output:
+      1. A sidewaystable (landscape) with mean and standard deviation.
+      2. A standard table (portrait) with mean values only (\\scriptsize).
     """
     if not runs_in_group:
         return ""
@@ -356,9 +472,10 @@ def generate_latex_tables(runs_in_group: list[dict], group_index: int) -> str:
         f"% {'=' * 60}\n\n"
     )
 
-    table = _generate_table_merged(combined, ref_params)
+    table_sideways = _generate_table_merged(combined, ref_params)
+    table_standard = _generate_table_standard(combined, ref_params)
 
-    return separator + table + "\n"
+    return separator + table_sideways + "\n\n\\newpage\n\n" + table_standard + "\n"
 
 
 # ---------------------------------------------------------------------------

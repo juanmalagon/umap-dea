@@ -1,5 +1,5 @@
 {
-    "N": 200,
+    "N": 20,
     "M": 1,
     "n": 200,
     "alpha_1": 0.25,
@@ -7,7 +7,7 @@
     "sigma_u": 0.1,
     "rts": "vrs",
     "orientation": "input",
-    "nr_simulations": 1000,
+    "nr_simulations": 100,
     "seed": 42,
     "pca": false,
     "umap_n_neighbors": 15,
