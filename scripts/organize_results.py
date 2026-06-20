@@ -4,10 +4,10 @@ Organize /results/ into a clean structure.
 Steps:
   1. Recursively discover all CSV files across all subdirectories under /results/.
   2. Group files by UUID, deduplicating (files with same UUID are identical copies).
-  3. Read each params_dict CSV to determine pca, umap_n_neighbors, and gamma.
+  3. Read each params_dict CSV to determine pca, N, and gamma.
   4. Move files to the target structure:
-       results/gamma_XXX/pca_dea/           (if pca=True)
-       results/gamma_XXX/umap_dea/k_XX/     (if pca=False)
+       results/gamma_XXX/pca_dea/N_XXX/     (if pca=True)
+       results/gamma_XXX/umap_dea/N_XXX/    (if pca=False)
   5. Verify the new structure has all data.
 """
 
@@ -47,7 +47,7 @@ def gamma_to_str(gamma: str) -> str:
 
 
 def read_params(params_path: Path) -> tuple[str, str, str] | None:
-    """Return (pca_value, umap_n_neighbors, gamma) or None."""
+    """Return (pca_value, N, gamma) or None."""
     try:
         text = params_path.read_text()
         lines = [l.strip() for l in text.strip().splitlines()]
@@ -57,20 +57,20 @@ def read_params(params_path: Path) -> tuple[str, str, str] | None:
         header = [h.strip() for h in lines[0].split(",")]
         values = [v.strip() for v in lines[1].split(",")]
         row = dict(zip(header, values))
-        return row.get("pca", ""), row.get("umap_n_neighbors", ""), row.get("gamma", "")
+        return row.get("pca", ""), row.get("N", ""), row.get("gamma", "")
     except Exception as e:
         print(f"  ERROR reading {params_path.name}: {e}")
         return None
 
 
-def dest_dir_for(pca: str, k: str, gamma: str = "") -> Path:
+def dest_dir_for(pca: str, N: str, gamma: str = "") -> Path:
     """Determine the destination directory based on params."""
     gamma_part = f"gamma_{gamma_to_str(gamma)}" if gamma else ""
+    n_padded = f"N_{int(N):03d}" if N else f"N_{N}"
     if pca.lower() == "true":
-        return RESULTS_DIR / gamma_part / "pca_dea" if gamma_part else RESULTS_DIR / "pca_dea"
+        return RESULTS_DIR / gamma_part / "pca_dea" / n_padded if gamma_part else RESULTS_DIR / "pca_dea" / n_padded
     else:
-        k_padded = f"k_{int(k):02d}" if k else f"k_{k}"
-        return RESULTS_DIR / gamma_part / "umap_dea" / k_padded if gamma_part else RESULTS_DIR / "umap_dea" / k_padded
+        return RESULTS_DIR / gamma_part / "umap_dea" / n_padded if gamma_part else RESULTS_DIR / "umap_dea" / n_padded
 
 
 # ── step 1: discover all CSV files recursively ──────────────────────
@@ -171,8 +171,8 @@ def move_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]
             errors += len(files)
             continue
 
-        pca, k, gamma = pd
-        dest_dir = dest_dir_for(pca, k, gamma)
+        pca, N, gamma = pd
+        dest_dir = dest_dir_for(pca, N, gamma)
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         for src_path in files:
@@ -222,8 +222,8 @@ def verify_structure(original_groups: dict[str, list[Path]]) -> bool:
         pd = read_params(params_path)
         if pd is None:
             continue
-        pca, k, gamma = pd
-        dd = dest_dir_for(pca, k, gamma)
+        pca, N, gamma = pd
+        dd = dest_dir_for(pca, N, gamma)
         for src in files:
             dest = dd / src.name
             if not dest.exists():
@@ -235,7 +235,7 @@ def verify_structure(original_groups: dict[str, list[Path]]) -> bool:
 # ── step 6: cleanup stray files and empty directories ────────────────
 
 VALID_DIR_PATTERN = re.compile(
-    r"results/gamma_[^/]+/(?:pca_dea|umap_dea(?:/k_\d+)?)/"  # intentionally left off for Path matching
+    r"results/gamma_[^/]+/(?:pca_dea|umap_dea(?:/N_\d+)?)/"  # intentionally left off for Path matching
 )
 
 
@@ -258,10 +258,9 @@ def is_inside_target_structure(file_path: Path) -> bool:
     if parts[1] not in ("pca_dea", "umap_dea"):
         return False
 
-    # If umap_dea, third level must be k_XX
-    if parts[1] == "umap_dea":
-        if len(parts) < 3 or not parts[2].startswith("k_"):
-            return False
+    # Third level must be N_XXX
+    if len(parts) < 3 or not parts[2].startswith("N_"):
+        return False
 
     return True
 

@@ -1,7 +1,7 @@
 {
-    "N": 20,
+    "N": 10,
     "M": 1,
-    "n": 200,
+    "n": 10,
     "alpha_1": 0.25,
     "gamma": 0.5,
     "sigma_u": 0.1,
@@ -9,8 +9,8 @@
     "orientation": "input",
     "nr_simulations": 100,
     "seed": 42,
-    "pca": false,
-    "umap_n_neighbors": 15,
+    "pca": true,
+    "umap_n_neighbors": 3,
     "umap_min_dist": 0.1,
     "umap_metric": "euclidean"
 }

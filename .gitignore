@@ -183,3 +183,4 @@ results_grid_search/temp_config_*.json
 results/
 tex/
 analysis/
+all_results.csv
