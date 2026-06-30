@@ -6,8 +6,8 @@ Steps:
   2. Group files by UUID, deduplicating (files with same UUID are identical copies).
   3. Read each params_dict CSV to determine nr_simulations, pca, N, and gamma.
   4. Move files to the target structure:
-       results/nr_sim_XXX/gamma_XXX/pca_dea/N_XXX/     (if pca=True)
-       results/nr_sim_XXX/gamma_XXX/umap_dea/N_XXX/    (if pca=False)
+       results/nr_sim_XXX/gamma_XXX/pca_dea/N_XXX/n_XXXX/k_XXX/     (if pca=True)
+       results/nr_sim_XXX/gamma_XXX/umap_dea/N_XXX/n_XXXX/k_XXX/    (if pca=False)
   5. Verify the new structure has all data.
 """
 
@@ -46,8 +46,8 @@ def gamma_to_str(gamma: str) -> str:
     return gamma.replace(".", "p")
 
 
-def read_params(params_path: Path) -> tuple[str, str, str, str] | None:
-    """Return (pca_value, N, gamma, nr_simulations) or None."""
+def read_params(params_path: Path) -> tuple[str, str, str, str, str, str] | None:
+    """Return (pca_value, N, n, k, gamma, nr_simulations) or None."""
     try:
         text = params_path.read_text()
         lines = [l.strip() for l in text.strip().splitlines()]
@@ -57,24 +57,26 @@ def read_params(params_path: Path) -> tuple[str, str, str, str] | None:
         header = [h.strip() for h in lines[0].split(",")]
         values = [v.strip() for v in lines[1].split(",")]
         row = dict(zip(header, values))
-        return row.get("pca", ""), row.get("N", ""), row.get("gamma", ""), row.get("nr_simulations", "")
+        return row.get("pca", ""), row.get("N", ""), row.get("n", ""), row.get("umap_n_neighbors", ""), row.get("gamma", ""), row.get("nr_simulations", "")
     except Exception as e:
         print(f"  ERROR reading {params_path.name}: {e}")
         return None
 
 
-def dest_dir_for(pca: str, N: str, gamma: str = "", nr_simulations: str = "") -> Path:
+def dest_dir_for(pca: str, N: str, n: str = "", k: str = "", gamma: str = "", nr_simulations: str = "") -> Path:
     """Determine the destination directory based on params.
     
-    Structure: results/nr_sim_XXX/gamma_XXX/pca_dea/N_XXX/
+    Structure: results/nr_sim_XXX/gamma_XXX/pca_dea/N_XXX/n_XXXX/k_XXX/
     """
     nr_sim_part = f"nr_sim_{int(nr_simulations)}" if nr_simulations else ""
     gamma_part = f"gamma_{gamma_to_str(gamma)}" if gamma else ""
     n_padded = f"N_{int(N):03d}" if N else str(N)
+    n_sample_padded = f"n_{int(n):04d}" if n else str(n)
+    k_padded = f"k_{int(k):03d}" if k else str(k)
     if pca.lower() == "true":
-        return RESULTS_DIR / nr_sim_part / gamma_part / "pca_dea" / n_padded
+        return RESULTS_DIR / nr_sim_part / gamma_part / "pca_dea" / n_padded / n_sample_padded / k_padded
     else:
-        return RESULTS_DIR / nr_sim_part / gamma_part / "umap_dea" / n_padded
+        return RESULTS_DIR / nr_sim_part / gamma_part / "umap_dea" / n_padded / n_sample_padded / k_padded
 
 
 # ── step 1: discover all CSV files recursively ──────────────────────
@@ -175,8 +177,8 @@ def move_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]
             errors += len(files)
             continue
 
-        pca, N, gamma, nr_simulations = pd
-        dest_dir = dest_dir_for(pca, N, gamma, nr_simulations)
+        pca, N, n, k, gamma, nr_simulations = pd
+        dest_dir = dest_dir_for(pca, N, n, k, gamma, nr_simulations)
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         for src_path in files:
@@ -226,8 +228,8 @@ def verify_structure(original_groups: dict[str, list[Path]]) -> bool:
         pd = read_params(params_path)
         if pd is None:
             continue
-        pca, N, gamma, nr_simulations = pd
-        dd = dest_dir_for(pca, N, gamma, nr_simulations)
+        pca, N, n, k, gamma, nr_simulations = pd
+        dd = dest_dir_for(pca, N, n, k, gamma, nr_simulations)
         for src in files:
             dest = dd / src.name
             if not dest.exists():
@@ -239,7 +241,7 @@ def verify_structure(original_groups: dict[str, list[Path]]) -> bool:
 # ── step 6: cleanup stray files and empty directories ────────────────
 
 VALID_DIR_PATTERN = re.compile(
-    r"results/gamma_[^/]+/(?:pca_dea|umap_dea(?:/N_\d+)?)/"  # intentionally left off for Path matching
+    r"results/gamma_[^/]+/(?:pca_dea|umap_dea(?:/N_\d+(?:/n_\d+(?:/k_\d+)?)?)?)/"  # intentionally left off for Path matching
 )
 
 
@@ -268,6 +270,14 @@ def is_inside_target_structure(file_path: Path) -> bool:
 
     # Fourth level must be N_XXX
     if len(parts) < 4 or not parts[3].startswith("N_"):
+        return False
+
+    # Fifth level must be n_XXXX
+    if len(parts) < 5 or not parts[4].startswith("n_"):
+        return False
+
+    # Sixth level must be k_XXX
+    if len(parts) < 6 or not parts[5].startswith("k_"):
         return False
 
     return True
