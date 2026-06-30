@@ -4,10 +4,10 @@ Organize /results/ into a clean structure.
 Steps:
   1. Recursively discover all CSV files across all subdirectories under /results/.
   2. Group files by UUID, deduplicating (files with same UUID are identical copies).
-  3. Read each params_dict CSV to determine pca, N, and gamma.
+  3. Read each params_dict CSV to determine nr_simulations, pca, N, and gamma.
   4. Move files to the target structure:
-       results/gamma_XXX/pca_dea/N_XXX/     (if pca=True)
-       results/gamma_XXX/umap_dea/N_XXX/    (if pca=False)
+       results/nr_sim_XXX/gamma_XXX/pca_dea/N_XXX/     (if pca=True)
+       results/nr_sim_XXX/gamma_XXX/umap_dea/N_XXX/    (if pca=False)
   5. Verify the new structure has all data.
 """
 
@@ -46,8 +46,8 @@ def gamma_to_str(gamma: str) -> str:
     return gamma.replace(".", "p")
 
 
-def read_params(params_path: Path) -> tuple[str, str, str] | None:
-    """Return (pca_value, N, gamma) or None."""
+def read_params(params_path: Path) -> tuple[str, str, str, str] | None:
+    """Return (pca_value, N, gamma, nr_simulations) or None."""
     try:
         text = params_path.read_text()
         lines = [l.strip() for l in text.strip().splitlines()]
@@ -57,20 +57,24 @@ def read_params(params_path: Path) -> tuple[str, str, str] | None:
         header = [h.strip() for h in lines[0].split(",")]
         values = [v.strip() for v in lines[1].split(",")]
         row = dict(zip(header, values))
-        return row.get("pca", ""), row.get("N", ""), row.get("gamma", "")
+        return row.get("pca", ""), row.get("N", ""), row.get("gamma", ""), row.get("nr_simulations", "")
     except Exception as e:
         print(f"  ERROR reading {params_path.name}: {e}")
         return None
 
 
-def dest_dir_for(pca: str, N: str, gamma: str = "") -> Path:
-    """Determine the destination directory based on params."""
+def dest_dir_for(pca: str, N: str, gamma: str = "", nr_simulations: str = "") -> Path:
+    """Determine the destination directory based on params.
+    
+    Structure: results/nr_sim_XXX/gamma_XXX/pca_dea/N_XXX/
+    """
+    nr_sim_part = f"nr_sim_{int(nr_simulations)}" if nr_simulations else ""
     gamma_part = f"gamma_{gamma_to_str(gamma)}" if gamma else ""
-    n_padded = f"N_{int(N):03d}" if N else f"N_{N}"
+    n_padded = f"N_{int(N):03d}" if N else str(N)
     if pca.lower() == "true":
-        return RESULTS_DIR / gamma_part / "pca_dea" / n_padded if gamma_part else RESULTS_DIR / "pca_dea" / n_padded
+        return RESULTS_DIR / nr_sim_part / gamma_part / "pca_dea" / n_padded
     else:
-        return RESULTS_DIR / gamma_part / "umap_dea" / n_padded if gamma_part else RESULTS_DIR / "umap_dea" / n_padded
+        return RESULTS_DIR / nr_sim_part / gamma_part / "umap_dea" / n_padded
 
 
 # ── step 1: discover all CSV files recursively ──────────────────────
@@ -171,8 +175,8 @@ def move_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]
             errors += len(files)
             continue
 
-        pca, N, gamma = pd
-        dest_dir = dest_dir_for(pca, N, gamma)
+        pca, N, gamma, nr_simulations = pd
+        dest_dir = dest_dir_for(pca, N, gamma, nr_simulations)
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         for src_path in files:
@@ -222,8 +226,8 @@ def verify_structure(original_groups: dict[str, list[Path]]) -> bool:
         pd = read_params(params_path)
         if pd is None:
             continue
-        pca, N, gamma = pd
-        dd = dest_dir_for(pca, N, gamma)
+        pca, N, gamma, nr_simulations = pd
+        dd = dest_dir_for(pca, N, gamma, nr_simulations)
         for src in files:
             dest = dd / src.name
             if not dest.exists():
@@ -250,16 +254,20 @@ def is_inside_target_structure(file_path: Path) -> bool:
     if len(parts) < 2:
         return False
 
-    # Must start with gamma_XXX
-    if not parts[0].startswith("gamma_"):
+    # Must start with nr_sim_XXX
+    if not parts[0].startswith("nr_sim_"):
         return False
 
-    # Second level: pca_dea or umap_dea
-    if parts[1] not in ("pca_dea", "umap_dea"):
+    # Second level must be gamma_XXX
+    if len(parts) < 2 or not parts[1].startswith("gamma_"):
         return False
 
-    # Third level must be N_XXX
-    if len(parts) < 3 or not parts[2].startswith("N_"):
+    # Third level: pca_dea or umap_dea
+    if len(parts) < 3 or parts[2] not in ("pca_dea", "umap_dea"):
+        return False
+
+    # Fourth level must be N_XXX
+    if len(parts) < 4 or not parts[3].startswith("N_"):
         return False
 
     return True
