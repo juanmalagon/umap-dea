@@ -109,8 +109,10 @@ def find_overall_best_row(
 
 
 def main():
-    # Find all summary_df files
-    summary_files = glob.glob(os.path.join(RESULTS_DIR, "summary_df_*.csv"))
+    # Find all summary_df files (recursively in subdirectories)
+    summary_files = glob.glob(
+        os.path.join(RESULTS_DIR, "**", "summary_df_*.csv"), recursive=True
+    )
 
     rows = []
 
@@ -120,7 +122,9 @@ def main():
             print(f"Warning: could not extract UUID from {summary_path}")
             continue
 
-        params_path = os.path.join(RESULTS_DIR, f"params_dict_{uuid}.csv")
+        params_path = os.path.join(
+            os.path.dirname(summary_path), f"params_dict_{uuid}.csv"
+        )
         if not os.path.exists(params_path):
             print(f"Warning: no params_dict found for UUID {uuid}, skipping")
             continue
