@@ -182,4 +182,4 @@ results_grid_search/
 results_grid_search/temp_config_*.json
 tex/
 analysis/
-# all_results.csv
+all_results.csv
