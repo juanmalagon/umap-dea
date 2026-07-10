@@ -129,7 +129,7 @@ If you use this code or findings in your work, please cite:
 
 ## 📬 Contact
 
-For questions or collaborations, please contact malagon@alumni.harvard.edu or open an issue in this repository.
+For questions or collaborations, please contact `malagon at alumni dot harvard dot edu` or open an issue in this repository.
 
 ---
 
