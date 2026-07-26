@@ -1,0 +1,49 @@
+{
+    "global": {
+        "rts": "vrs",
+        "gamma": 0.5,
+        "nr_simulations": 1000,
+        "algo": "UMAP-DEA",
+        "N": 50,
+        "n": 500,
+        "umap_n_neighbors": 3
+    },
+    "run_a": {
+        "algo": "PCA-DEA",
+        "N": "global",
+        "n": "global",
+        "rts": "global",
+        "gamma": "global",
+        "umap_n_neighbors": "global",
+        "nr_simulations": "global"
+    },
+    "run_b": {
+        "algo": "global",
+        "N": "global",
+        "n": "global",
+        "rts": "global",
+        "gamma": "global",
+        "umap_n_neighbors": 8,
+        "nr_simulations": "global"
+    },
+    "run_c": {
+        "algo": "global",
+        "N": "global",
+        "n": "global",
+        "rts": "global",
+        "gamma": "global",
+        "umap_n_neighbors": 22,
+        "nr_simulations": "global"
+    },
+    "run_d": {
+        "algo": "global",
+        "N": "global",
+        "n": "global",
+        "rts": "global",
+        "gamma": "global",
+        "umap_n_neighbors": 250,
+        "nr_simulations": "global"
+    },
+    "metric_name": "Kendall",
+    "show_std": true
+}
