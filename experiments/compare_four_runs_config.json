@@ -5,7 +5,7 @@
         "nr_simulations": 1000,
         "algo": "UMAP-DEA",
         "N": 100,
-        "n": 1000,
+        "n": 100,
         "umap_n_neighbors": 3
     },
     "run_a": {
@@ -23,7 +23,7 @@
         "n": "global",
         "rts": "global",
         "gamma": "global",
-        "umap_n_neighbors": 9,
+        "umap_n_neighbors": 6,
         "nr_simulations": "global"
     },
     "run_c": {
@@ -32,7 +32,7 @@
         "n": "global",
         "rts": "global",
         "gamma": "global",
-        "umap_n_neighbors": 31,
+        "umap_n_neighbors": 10,
         "nr_simulations": "global"
     },
     "run_d": {
@@ -41,9 +41,9 @@
         "n": "global",
         "rts": "global",
         "gamma": "global",
-        "umap_n_neighbors": 500,
+        "umap_n_neighbors": 50,
         "nr_simulations": "global"
     },
     "metric_name": "Kendall",
-    "show_std": true
+    "show_std": false
 }

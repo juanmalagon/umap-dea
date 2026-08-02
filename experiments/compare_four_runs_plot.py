@@ -3,6 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import os
 
 # Metric mapping
 METRICS = {
@@ -16,7 +17,7 @@ METRICS = {
 
 # Dimension order
 DIM_ORDER = ["original", "half", "ten_percent", "sqrt", "log"]
-DIM_LABELS = ["N (original)", "N/2", "10%", "√N", "log(N)"]
+DIM_LABELS = ["N (original)", "N/2", "10%N", "√N", "ln(N)"]
 
 # Colors
 COLOR_A = "#1f77b4"
@@ -116,9 +117,9 @@ def _plot_bar_chart(ax, x, width, agg_a, agg_b, agg_c, agg_d, show_std,
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels_ordered, fontsize=11)
+    ax.set_xlabel("Dimension Reduction Level", fontsize=12)
     ax.set_ylabel(metric_name, fontsize=12)
     title = (
-        f"{metric_name}:  "
         f"{run_labels[0]}  vs  {run_labels[1]}  vs  {run_labels[2]}  vs  {run_labels[3]}"
     )
     ax.set_title(title, fontsize=12, fontweight="bold")
@@ -141,6 +142,7 @@ def _plot_diff_panel(ax, x, width, diff, col_a, col_opponent, label, labels_orde
             )
     ax.set_xticks(x)
     ax.set_xticklabels(labels_ordered, fontsize=11)
+    ax.set_xlabel("Dimension Reduction Level", fontsize=12)
     ax.set_ylabel(label, fontsize=12)
     ax.set_title(label, fontsize=11, fontweight="bold", color="#555555")
     ax.grid(True, alpha=0.3, axis="y")
@@ -235,8 +237,15 @@ def plot_comparison(
         & set(df_c["dim_reduction_level"].unique())
         & set(df_d["dim_reduction_level"].unique())
     )
-    levels_ordered = [l for l in DIM_ORDER if l in levels_present]
-    labels_ordered = [DIM_LABELS[DIM_ORDER.index(l)] for l in levels_ordered]
+    # Sort by actual dimensionality (dims) in descending order
+    dims_map = df_a.groupby("dim_reduction_level")["dims"].first().to_dict()
+    levels_ordered = sorted(levels_present, key=lambda l: dims_map.get(l, 0), reverse=True)
+    # Build labels with actual dims from the data
+    labels_ordered = []
+    for l in levels_ordered:
+        base_label = DIM_LABELS[DIM_ORDER.index(l)]
+        actual_dims = dims_map.get(l, "?")
+        labels_ordered.append(f"{base_label} ({actual_dims})")
 
     if len(levels_ordered) == 0:
         print("⚠️ No common dim_reduction_level values between the four runs.")
@@ -255,28 +264,91 @@ def plot_comparison(
     run_label_d = f"Run D: {run_d_algo}" + (f" (k={run_d_umap_n_neighbors})" if run_d_algo != "PCA-DEA" else "")
     run_labels = [run_label_a, run_label_b, run_label_c, run_label_d]
 
-    # Plot
-    fig, (ax_bar, ax_diff_ab, ax_diff_ac, ax_diff_ad) = plt.subplots(
-        4, 1, figsize=(12, 12), gridspec_kw={"height_ratios": [3, 1.5, 1.5, 1.5]}
-    )
+    # Build short labels and output directory
+    def _short_label(algo, umap_k):
+        """Compact run label for filenames."""
+        if algo == "PCA-DEA":
+            return "PCA-DEA"
+        return f"{algo}_k{umap_k}"
+
+    short_a = _short_label(run_a_algo, run_a_umap_n_neighbors)
+    short_b = _short_label(run_b_algo, run_b_umap_n_neighbors)
+    short_c = _short_label(run_c_algo, run_c_umap_n_neighbors)
+    short_d = _short_label(run_d_algo, run_d_umap_n_neighbors)
+
+    # Include N/n in filename only if they differ between runs
+    N_values = set([run_a_N, run_b_N, run_c_N, run_d_N])
+    n_values = set([run_a_n, run_b_n, run_c_n, run_d_n])
+    dim_tag_parts = []
+    if len(N_values) > 1:
+        dim_tag_parts.append(f"N_A{run_a_N}_B{run_b_N}_C{run_c_N}_D{run_d_N}")
+    else:
+        dim_tag_parts.append(f"N{run_a_N}")
+    if len(n_values) > 1:
+        dim_tag_parts.append(f"n_A{run_a_n}_B{run_b_n}_C{run_c_n}_D{run_d_n}")
+    else:
+        dim_tag_parts.append(f"n{run_a_n}")
+    dim_tag = "_".join(dim_tag_parts)
+
+    output_dir = os.path.join(os.path.dirname(__file__), "plots")
+    os.makedirs(output_dir, exist_ok=True)
+
+    def _save_and_show(fig, filename):
+        """Save figure to plots/ and display it."""
+        path = os.path.join(output_dir, filename)
+        fig.tight_layout()
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+        print(f"💾 Saved: {path}")
+        plt.show()
+        plt.close(fig)
+
     x = np.arange(len(levels_ordered))
     width = 0.20
 
+    # --- 1. Bar chart ---
+    fig_bar, ax_bar = plt.subplots(figsize=(12, 8))
+    fig_bar.suptitle(f"N = {run_a_N}, n = {run_a_n}, {metric_name}", fontsize=12, fontweight="bold", y=0.98)
     _plot_bar_chart(ax_bar, x, width, agg_a, agg_b, agg_c, agg_d,
                     show_std, run_labels, labels_ordered, metric_name)
+    bar_filename = (
+        f"{metric_name}__bar__"
+        f"A_{short_a}_B_{short_b}_C_{short_c}_D_{short_d}__"
+        f"{dim_tag}.png"
+    )
+    _save_and_show(fig_bar, bar_filename)
 
-    # Difference panels
+    # --- 2. Difference A − B ---
     diff_ab = agg_a["metric_mean"].values - agg_b["metric_mean"].values
+    fig_diff_ab, ax_diff_ab = plt.subplots(figsize=(12, 4))
     _plot_diff_panel(ax_diff_ab, x, width, diff_ab, COLOR_A, COLOR_B, "Δ (A − B)", labels_ordered)
+    diff_ab_filename = (
+        f"{metric_name}__diff_A-B__"
+        f"A_{short_a}_B_{short_b}__"
+        f"{dim_tag}.png"
+    )
+    _save_and_show(fig_diff_ab, diff_ab_filename)
 
+    # --- 3. Difference A − C ---
     diff_ac = agg_a["metric_mean"].values - agg_c["metric_mean"].values
+    fig_diff_ac, ax_diff_ac = plt.subplots(figsize=(12, 4))
     _plot_diff_panel(ax_diff_ac, x, width, diff_ac, COLOR_A, COLOR_C, "Δ (A − C)", labels_ordered)
+    diff_ac_filename = (
+        f"{metric_name}__diff_A-C__"
+        f"A_{short_a}_C_{short_c}__"
+        f"{dim_tag}.png"
+    )
+    _save_and_show(fig_diff_ac, diff_ac_filename)
 
+    # --- 4. Difference A − D ---
     diff_ad = agg_a["metric_mean"].values - agg_d["metric_mean"].values
+    fig_diff_ad, ax_diff_ad = plt.subplots(figsize=(12, 4))
     _plot_diff_panel(ax_diff_ad, x, width, diff_ad, COLOR_A, COLOR_D, "Δ (A − D)", labels_ordered)
-
-    plt.tight_layout()
-    plt.show()
+    diff_ad_filename = (
+        f"{metric_name}__diff_A-D__"
+        f"A_{short_a}_D_{short_d}__"
+        f"{dim_tag}.png"
+    )
+    _save_and_show(fig_diff_ad, diff_ad_filename)
 
     # Summary table
     table_data = {

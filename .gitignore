@@ -184,3 +184,4 @@ tex/
 analysis/
 # all_results.csv
 *.csv
+*.png
