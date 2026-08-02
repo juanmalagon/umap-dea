@@ -2,25 +2,43 @@
 """
 find_best_dim_reduction.py
 
-Reads summary_df and params_dict CSV files from the results/ folder.
-For each experiment (matched by UUID), finds the best dim_reduction_level
-with respect to each metric (mae, spearman, pearson, kendall).
+Reads all_results.csv from the project root.
+For each experiment (identified by unique combinations of parameter values),
+finds the best dim_reduction_level with respect to each metric
+(mae, spearman, pearson, kendall).
 Outputs a single CSV table in analysis/best_dim_reduction.csv with the best
 level, dims, and value for each metric, along with all other parameters.
 """
 
-import glob
 import os
-import re
 
 import pandas as pd
 
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
-RESULTS_DIR = os.path.join(_PROJECT_ROOT, "results")
+ALL_RESULTS_FILE = os.path.join(_PROJECT_ROOT, "all_results.csv")
 ANALYSIS_DIR = os.path.join(_PROJECT_ROOT, "analysis")
 OUTPUT_FILE = os.path.join(ANALYSIS_DIR, "best_dim_reduction.csv")
+
+# Columns that identify an experiment (grouping key).
+# These are the parameters that are fixed within a single experiment.
+PARAM_COLS = [
+    "seed",
+    "alpha_1",
+    "sigma_u",
+    "gamma",
+    "M",
+    "rts",
+    "orientation",
+    "nr_simulations",
+    "umap_min_dist",
+    "umap_metric",
+    "pca",
+    "N",
+    "n",
+    "umap_n_neighbors",
+]
 
 # Metrics to find the best for
 # For mae: lower is better -> use idxmin
@@ -31,16 +49,6 @@ METRICS = {
     "pearson": {"column": "pearsonr_mean", "best": "max"},
     "kendall": {"column": "kendalltau_mean", "best": "max"},
 }
-
-
-def extract_uuid(filename: str) -> str:
-    """Extract the UUID from a filename like summary_df_<uuid>.csv."""
-    match = re.search(
-        r"(?:summary_df|params_dict)_([0-9a-fA-F-]+)\.csv", filename
-    )
-    if match:
-        return match.group(1)
-    return ""
 
 
 def find_best_row(df: pd.DataFrame, metric_col: str, best: str) -> pd.Series:
@@ -109,43 +117,32 @@ def find_overall_best_row(
 
 
 def main():
-    # Find all summary_df files (recursively in subdirectories)
-    summary_files = glob.glob(
-        os.path.join(RESULTS_DIR, "**", "summary_df_*.csv"), recursive=True
-    )
+    # Read the single all_results.csv file
+    all_df = pd.read_csv(ALL_RESULTS_FILE)
+
+    # Verify all PARAM_COLS exist in the CSV
+    missing_params = [c for c in PARAM_COLS if c not in all_df.columns]
+    if missing_params:
+        raise KeyError(
+            f"Columns {missing_params} not found in {ALL_RESULTS_FILE}"
+        )
+
+    # Group by the parameter columns
+    groups = all_df.groupby(PARAM_COLS, sort=False, dropna=False)
 
     rows = []
+    exp_id = 0
 
-    for summary_path in sorted(summary_files):
-        uuid = extract_uuid(os.path.basename(summary_path))
-        if not uuid:
-            print(f"Warning: could not extract UUID from {summary_path}")
-            continue
-
-        params_path = os.path.join(
-            os.path.dirname(summary_path), f"params_dict_{uuid}.csv"
-        )
-        if not os.path.exists(params_path):
-            print(f"Warning: no params_dict found for UUID {uuid}, skipping")
-            continue
-
-        # Read files
-        summary_df = pd.read_csv(summary_path)
-        params_df = pd.read_csv(params_path)
-
-        if params_df.empty:
-            print(f"Warning: params_dict is empty for UUID {uuid}, skipping")
-            continue
-
-        params = params_df.iloc[0].to_dict()
+    for group_key, group_df in groups:
+        exp_id += 1
 
         # Build the output row
-        row = {"uuid": uuid}
+        row = {"experiment_id": f"exp_{exp_id:04d}"}
 
         for metric_name, metric_info in METRICS.items():
             col = metric_info["column"]
             best = metric_info["best"]
-            best_row = find_best_row(summary_df, col, best)
+            best_row = find_best_row(group_df, col, best)
 
             row[f"best_{metric_name}_level"] = best_row.get(
                 "dim_reduction_level", float("nan")
@@ -158,7 +155,7 @@ def main():
             )
 
         # Find the overall best level (across all metrics, excluding "original")
-        overall_row, overall_meanrank = find_overall_best_row(summary_df, METRICS)
+        overall_row, overall_meanrank = find_overall_best_row(group_df, METRICS)
         row["best_overall_level"] = overall_row.get(
             "dim_reduction_level", float("nan")
         )
@@ -167,16 +164,17 @@ def main():
         )
         row["best_overall_meanrank"] = overall_meanrank
 
-        # Add all params_dict columns
-        row.update(params)
+        # Add all parameter values from the group key
+        for i, param_name in enumerate(PARAM_COLS):
+            row[param_name] = group_key[i]
 
         rows.append(row)
 
     # Build output DataFrame
     output_df = pd.DataFrame(rows)
 
-    # Reorder columns: uuid, best_* columns, then params
-    id_cols = ["uuid"]
+    # Reorder columns: experiment_id, best_* columns, then params
+    id_cols = ["experiment_id"]
     best_cols = (
         [
             f"best_{m}_{suffix}"
@@ -185,16 +183,8 @@ def main():
         ]
         + ["best_overall_level", "best_overall_dims", "best_overall_meanrank"]
     )
-    # Get all unique param keys in order of first appearance
-    param_cols = []
-    seen = set()
-    for r in rows:
-        for k in r:
-            if k not in id_cols and k not in best_cols and k not in seen:
-                param_cols.append(k)
-                seen.add(k)
 
-    output_df = output_df[id_cols + best_cols + param_cols]
+    output_df = output_df[id_cols + best_cols + PARAM_COLS]
 
     # Save
     os.makedirs(ANALYSIS_DIR, exist_ok=True)

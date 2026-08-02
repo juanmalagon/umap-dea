@@ -15,8 +15,8 @@ METRICS = {
 }
 
 # Dimension order
-DIM_ORDER = ["log", "sqrt", "ten_percent", "half", "original"]
-DIM_LABELS = ["log(N)", "√N", "10%", "N/2", "N (original)"]
+DIM_ORDER = ["original", "half", "ten_percent", "sqrt", "log"]
+DIM_LABELS = ["N (original)", "N/2", "10%", "√N", "log(N)"]
 
 # Colors
 COLOR_A = "#1f77b4"
@@ -249,10 +249,10 @@ def plot_comparison(
     agg_d = _aggregate(df_d, levels_ordered, mean_col, std_col)
 
     # Build run labels for the plot legend / title
-    run_label_a = f"Run A: {run_a_algo} (k={run_a_umap_n_neighbors})"
-    run_label_b = f"Run B: {run_b_algo} (k={run_b_umap_n_neighbors})"
-    run_label_c = f"Run C: {run_c_algo} (k={run_c_umap_n_neighbors})"
-    run_label_d = f"Run D: {run_d_algo} (k={run_d_umap_n_neighbors})"
+    run_label_a = f"Run A: {run_a_algo}" + (f" (k={run_a_umap_n_neighbors})" if run_a_algo != "PCA-DEA" else "")
+    run_label_b = f"Run B: {run_b_algo}" + (f" (k={run_b_umap_n_neighbors})" if run_b_algo != "PCA-DEA" else "")
+    run_label_c = f"Run C: {run_c_algo}" + (f" (k={run_c_umap_n_neighbors})" if run_c_algo != "PCA-DEA" else "")
+    run_label_d = f"Run D: {run_d_algo}" + (f" (k={run_d_umap_n_neighbors})" if run_d_algo != "PCA-DEA" else "")
     run_labels = [run_label_a, run_label_b, run_label_c, run_label_d]
 
     # Plot

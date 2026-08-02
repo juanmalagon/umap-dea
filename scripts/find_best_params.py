@@ -4,7 +4,7 @@ find_best_params.py
 
 Reads all_results.csv. For each combination of (rts, gamma, nr_simulations, N, n),
 finds the best parameters (pca, dims, dim_reduction_level, umap_n_neighbors) for a given
-metric. Outputs the results as a CSV file.
+metric. Outputs the results as a CSV file in the analysis/ folder.
 
 Usage as a script:
     python scripts/find_best_params.py <metric_name> [--input all_results.csv] [--output best_params.csv]
@@ -14,7 +14,7 @@ Usage as a module:
     import pandas as pd
     df = pd.read_csv("all_results.csv")
     result = find_best_params(df, "MAE")
-    result.to_csv("best_params_mae.csv", index=False)
+    result.to_csv("analysis/best_params_mae.csv", index=False)
 
 Metrics that are "better" when lower:
     - MAE
@@ -29,6 +29,11 @@ import sys
 from typing import Optional
 
 import pandas as pd
+
+
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
+ANALYSIS_DIR = os.path.join(_PROJECT_ROOT, "analysis")
 
 
 # Metric configuration: (column_name, lower_is_better)
@@ -140,8 +145,8 @@ def main() -> None:
         "-o",
         default=None,
         help=(
-            "Output CSV file path (default: best_params_<metric>.csv "
-            "in the current directory)."
+            "Output CSV file name (default: best_params_<metric>.csv). "
+            "The file is written to the analysis/ folder."
         ),
     )
 
@@ -161,6 +166,10 @@ def main() -> None:
         metric_slug = args.metric.lower().replace(" ", "_")
         output_path = f"best_params_{metric_slug}.csv"
 
+    if not os.path.isabs(output_path):
+        output_path = os.path.join(ANALYSIS_DIR, output_path)
+
+    os.makedirs(ANALYSIS_DIR, exist_ok=True)
     result_df.to_csv(output_path, index=False)
     print(f"Results written to {output_path}")
     print(f"Found best parameters for {len(result_df)} groups.")
