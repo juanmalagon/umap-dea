@@ -19,7 +19,7 @@ def load_config(path=None):
         A dictionary with keys:
         - ``run_a`` .. ``run_d`` : each a dict with keys
           algo, N, n, rts, gamma, umap_n_neighbors, nr_simulations
-        - ``metric_name`` : str
+        - ``metric_names`` : list of str
         - ``show_std`` : bool
     """
     if path is None:
@@ -39,12 +39,18 @@ def load_config(path=None):
             resolved[key] = global_defaults[key] if val == "global" else val
         return resolved
 
+    # Support both "metric_names" (new, array) and "metric_name" (legacy, string)
+    if "metric_names" in raw:
+        metric_names = raw["metric_names"]
+    else:
+        metric_names = [raw.get("metric_name", "Kendall")]
+
     config = {
         "run_a": _resolve("run_a"),
         "run_b": _resolve("run_b"),
         "run_c": _resolve("run_c"),
         "run_d": _resolve("run_d"),
-        "metric_name": raw.get("metric_name", "Kendall"),
+        "metric_names": metric_names,
         "show_std": raw.get("show_std", True),
     }
     return config

@@ -44,6 +44,6 @@
         "umap_n_neighbors": 50,
         "nr_simulations": "global"
     },
-    "metric_name": "Kendall",
+    "metric_names": ["Kendall", "MAE", "Pearson", "Spearman"],
     "show_std": false
 }
