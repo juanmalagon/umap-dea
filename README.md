@@ -187,6 +187,29 @@ Without `--param-grid`, the default grid is `N âˆˆ [20, 50, 100, 200]` and `n âˆ
 
 Results are placed in `results_grid_search/`.
 
+
+## Complete orientation study
+
+To reproduce the complete experiment matrix without repeatedly editing the
+configuration, run the dedicated study runner and supply only the DEA
+orientation:
+
+```bash
+python scripts/run_all_experiments.py --orientation input
+python scripts/run_all_experiments.py --orientation output
+```
+
+The runner uses the non-grid settings from `config.json`, then executes the
+16 established `(N, n)` cases: one PCA run and the appropriate two or three
+UMAP neighborhood values for each case. It writes results directly to a fresh
+`results_input_oriented_recomputed/` or
+`results_output_oriented_recomputed/` tree using the existing
+`nr_sim_.../gamma_.../{pca_dea,umap_dea}/N_.../n_.../k_...` layout. The full
+matrix contains 62 simulation batches per orientation. Use `--verbose` to
+show the subprocess logs. Pass `--results-root <path>` only when you
+intentionally want a different destination.
+
+
 ## Results organization
 
 After running simulations, the output files are written to `results/`. When you have simulations spanning multiple gamma values and reduction methods, you can organize them with `scripts/organize_results.py`:
