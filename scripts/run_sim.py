@@ -78,7 +78,7 @@ def run_simulation(params_dict: ParamsDict) -> pd.DataFrame:
         y_tilde=y_tilde,
         orientation=orientation,
     )
-    
+
     # Dimensionality Reduction
     embeddings = dim_red.create_embeddings(
         x=x,
@@ -380,6 +380,12 @@ if __name__ == "__main__":
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level (default: INFO). Use WARNING to suppress per-step noise."
     )
+    parser.add_argument(
+        "--results-dir",
+        type=str,
+        default=None,
+        help="Directory for CSV outputs (default: <project>/results).",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -398,7 +404,7 @@ if __name__ == "__main__":
     params_dict = asdict(config)
     
     # Set up results directory
-    results_dir = os.path.join(_PROJECT_ROOT, 'results')
+    results_dir = args.results_dir or os.path.join(_PROJECT_ROOT, 'results')
     os.makedirs(results_dir, exist_ok=True)
     
     # Run the simulations
