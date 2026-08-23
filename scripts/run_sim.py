@@ -27,6 +27,20 @@ ParamsDict = dict[str, Any]
 SimulationResult = dict[str, Any]
 
 
+def _design_score_for_orientation(
+    y: np.ndarray,
+    y_tilde: np.ndarray,
+    orientation: str,
+) -> np.ndarray:
+    """Express the DGP score on the same scale as the DEA orientation."""
+    input_efficiency = (y / y_tilde).squeeze()
+    if orientation == 'input':
+        return input_efficiency
+    if orientation == 'output':
+        return 1.0 / input_efficiency
+    raise ValueError("orientation must be either 'input' or 'output'")
+
+
 def run_simulation(params_dict: ParamsDict) -> pd.DataFrame:
     """
     Run a single simulation.
@@ -59,8 +73,12 @@ def run_simulation(params_dict: ParamsDict) -> pd.DataFrame:
     x = data_dict["x"]
     y = data_dict["y"]
     y_tilde = data_dict["y_tilde"]
-    efficiency_score_by_design = (y/y_tilde).squeeze()
-
+    efficiency_score_by_design = _design_score_for_orientation(
+        y=y,
+        y_tilde=y_tilde,
+        orientation=orientation,
+    )
+    
     # Dimensionality Reduction
     embeddings = dim_red.create_embeddings(
         x=x,
