@@ -281,8 +281,11 @@ This happens, for example, when a large fraction of DMUs lands on the efficiency
 
 ### DEA orientation
 
-- Input-oriented scores follow the usual DEA efficiency convention (≤ 1).
-- Output-oriented scores follow `dealib`'s convention and use a different scale; do not compare them directly with input-oriented scores.
+- Input-oriented DEA returns an efficiency score $e \leq 1$. The simulation
+   evaluates it against the DGP reference $y / \tilde{y}$.
+- Output-oriented DEA returns an output expansion factor $\phi \geq 1$.
+   The simulation evaluates it against the reciprocal DGP reference
+   $\tilde{y} / y = 1 / e$.
 
 ## Generating LaTeX tables
 
