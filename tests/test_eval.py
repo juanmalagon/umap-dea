@@ -138,8 +138,7 @@ class TestCountEfficient:
     def test_tolerance_boundary(self):
         """Values just inside tolerance are flagged, just outside are not."""
         tol = 1e-4
-        scores = np.array([1.0 - 0.99 * tol, 1.0 + 0.99 * tol,
-                           1.0 - 1.01 * tol, 1.0 + 1.01 * tol])
+        scores = np.array([1.0 - 0.99 * tol, 1.0 + 0.99 * tol, 1.0 - 1.01 * tol, 1.0 + 1.01 * tol])
         nr_eff, nr_nn, _ = eval._count_efficient(scores, tolerance=tol)
         assert nr_eff == 2  # first two are inside tolerance
 
@@ -289,9 +288,7 @@ class TestCreateEvaluationDF:
     def test_evaluation_df_with_noise(self, efficiency_scores):
         """Test evaluation with noisy efficiency scores."""
         np.random.seed(42)
-        efficiency_scores_dict = {
-            "embedding1": efficiency_scores + np.random.randn(50) * 0.01
-        }
+        efficiency_scores_dict = {"embedding1": efficiency_scores + np.random.randn(50) * 0.01}
         efficiency_score_by_design = efficiency_scores
         dims_for_embedding_dict = {"embedding1": 5, "original": 10}
 
@@ -311,9 +308,7 @@ class TestCreateEvaluationDF:
         """Test evaluation dataframe handles NaNs."""
         n = 50
         efficiency_scores_dict = {
-            "embedding1": np.concatenate(
-                [np.random.rand(40), np.full(10, np.nan)]
-            )
+            "embedding1": np.concatenate([np.random.rand(40), np.full(10, np.nan)])
         }
         efficiency_score_by_design = np.random.rand(n)
         dims_for_embedding_dict = {"embedding1": 5, "original": 10}

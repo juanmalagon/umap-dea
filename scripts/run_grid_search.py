@@ -82,9 +82,12 @@ def run_grid_search(
             # Run simulation with this config using the current Python env
             subprocess.run(
                 [
-                    sys.executable, _RUN_SIM_PATH,
-                    "--config", temp_config_path,
-                    "--log-level", log_level,
+                    sys.executable,
+                    _RUN_SIM_PATH,
+                    "--config",
+                    temp_config_path,
+                    "--log-level",
+                    log_level,
                 ],
                 check=True,
             )
@@ -137,9 +140,10 @@ def main(argv: list[str] | None = None) -> None:
         description="Grid search over parameter combinations for UMAP-DEA."
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
-        help="Show per-simulation detail (INFO level logs from subprocess)."
+        help="Show per-simulation detail (INFO level logs from subprocess).",
     )
     parser.add_argument(
         "--param-grid",

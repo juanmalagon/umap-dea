@@ -14,7 +14,6 @@ import os
 
 import pandas as pd
 
-
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 ALL_RESULTS_FILE = os.path.join(_PROJECT_ROOT, "all_results.csv")
@@ -67,9 +66,7 @@ def find_best_row(df: pd.DataFrame, metric_col: str, best: str) -> pd.Series:
     return valid.loc[idx]
 
 
-def find_overall_best_row(
-    df: pd.DataFrame, metrics: dict
-) -> tuple[pd.Series, float]:
+def find_overall_best_row(df: pd.DataFrame, metrics: dict) -> tuple[pd.Series, float]:
     """
     Find the row with the best overall dim_reduction_level across all metrics.
 
@@ -123,9 +120,7 @@ def main():
     # Verify all PARAM_COLS exist in the CSV
     missing_params = [c for c in PARAM_COLS if c not in all_df.columns]
     if missing_params:
-        raise KeyError(
-            f"Columns {missing_params} not found in {ALL_RESULTS_FILE}"
-        )
+        raise KeyError(f"Columns {missing_params} not found in {ALL_RESULTS_FILE}")
 
     # Group by the parameter columns
     groups = all_df.groupby(PARAM_COLS, sort=False, dropna=False)
@@ -144,24 +139,14 @@ def main():
             best = metric_info["best"]
             best_row = find_best_row(group_df, col, best)
 
-            row[f"best_{metric_name}_level"] = best_row.get(
-                "dim_reduction_level", float("nan")
-            )
-            row[f"best_{metric_name}_dims"] = best_row.get(
-                "dims", float("nan")
-            )
-            row[f"best_{metric_name}_value"] = best_row.get(
-                col, float("nan")
-            )
+            row[f"best_{metric_name}_level"] = best_row.get("dim_reduction_level", float("nan"))
+            row[f"best_{metric_name}_dims"] = best_row.get("dims", float("nan"))
+            row[f"best_{metric_name}_value"] = best_row.get(col, float("nan"))
 
         # Find the overall best level (across all metrics, excluding "original")
         overall_row, overall_meanrank = find_overall_best_row(group_df, METRICS)
-        row["best_overall_level"] = overall_row.get(
-            "dim_reduction_level", float("nan")
-        )
-        row["best_overall_dims"] = overall_row.get(
-            "dims", float("nan")
-        )
+        row["best_overall_level"] = overall_row.get("dim_reduction_level", float("nan"))
+        row["best_overall_dims"] = overall_row.get("dims", float("nan"))
         row["best_overall_meanrank"] = overall_meanrank
 
         # Add all parameter values from the group key
@@ -175,14 +160,11 @@ def main():
 
     # Reorder columns: experiment_id, best_* columns, then params
     id_cols = ["experiment_id"]
-    best_cols = (
-        [
-            f"best_{m}_{suffix}"
-            for m in METRICS
-            for suffix in ["level", "dims", "value"]
-        ]
-        + ["best_overall_level", "best_overall_dims", "best_overall_meanrank"]
-    )
+    best_cols = [f"best_{m}_{suffix}" for m in METRICS for suffix in ["level", "dims", "value"]] + [
+        "best_overall_level",
+        "best_overall_dims",
+        "best_overall_meanrank",
+    ]
 
     output_df = output_df[id_cols + best_cols + PARAM_COLS]
 

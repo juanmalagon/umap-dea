@@ -59,9 +59,7 @@ class TestReduceDims:
         metrics = ["euclidean", "cosine"]
 
         for metric in metrics:
-            result = dim_red.reduce_dims(
-                x, n_components=2, metric=metric, seed=42
-            )
+            result = dim_red.reduce_dims(x, n_components=2, metric=metric, seed=42)
             assert result.shape == (x.shape[0], 2)
             assert np.all(result >= 0)
 

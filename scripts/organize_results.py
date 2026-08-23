@@ -22,9 +22,7 @@ FILE_TYPES = ["evaluation_df", "summary_df", "errors_list", "params_dict"]
 
 # ── helpers ──────────────────────────────────────────────────────────
 
-UUID_RE = re.compile(
-    rf"(?:{'|'.join(FILE_TYPES)})_([a-f0-9-]+)\.csv$", re.IGNORECASE
-)
+UUID_RE = re.compile(rf"(?:{'|'.join(FILE_TYPES)})_([a-f0-9-]+)\.csv$", re.IGNORECASE)
 
 
 def extract_uuid(filename: str) -> str | None:
@@ -57,15 +55,24 @@ def read_params(params_path: Path) -> tuple[str, str, str, str, str, str] | None
         header = [h.strip() for h in lines[0].split(",")]
         values = [v.strip() for v in lines[1].split(",")]
         row = dict(zip(header, values))
-        return row.get("pca", ""), row.get("N", ""), row.get("n", ""), row.get("umap_n_neighbors", ""), row.get("gamma", ""), row.get("nr_simulations", "")
+        return (
+            row.get("pca", ""),
+            row.get("N", ""),
+            row.get("n", ""),
+            row.get("umap_n_neighbors", ""),
+            row.get("gamma", ""),
+            row.get("nr_simulations", ""),
+        )
     except Exception as e:
         print(f"  ERROR reading {params_path.name}: {e}")
         return None
 
 
-def dest_dir_for(pca: str, N: str, n: str = "", k: str = "", gamma: str = "", nr_simulations: str = "") -> Path:
+def dest_dir_for(
+    pca: str, N: str, n: str = "", k: str = "", gamma: str = "", nr_simulations: str = ""
+) -> Path:
     """Determine the destination directory based on params.
-    
+
     Structure: results/nr_sim_XXX/gamma_XXX/pca_dea/N_XXX/n_XXXX/k_XXX/
     """
     nr_sim_part = f"nr_sim_{int(nr_simulations)}" if nr_simulations else ""
@@ -74,12 +81,29 @@ def dest_dir_for(pca: str, N: str, n: str = "", k: str = "", gamma: str = "", nr
     n_sample_padded = f"n_{int(n):04d}" if n else str(n)
     k_padded = f"k_{int(k):03d}" if k else str(k)
     if pca.lower() == "true":
-        return RESULTS_DIR / nr_sim_part / gamma_part / "pca_dea" / n_padded / n_sample_padded / k_padded
+        return (
+            RESULTS_DIR
+            / nr_sim_part
+            / gamma_part
+            / "pca_dea"
+            / n_padded
+            / n_sample_padded
+            / k_padded
+        )
     else:
-        return RESULTS_DIR / nr_sim_part / gamma_part / "umap_dea" / n_padded / n_sample_padded / k_padded
+        return (
+            RESULTS_DIR
+            / nr_sim_part
+            / gamma_part
+            / "umap_dea"
+            / n_padded
+            / n_sample_padded
+            / k_padded
+        )
 
 
 # ── step 1: discover all CSV files recursively ──────────────────────
+
 
 def discover_all_csv_files(root: Path) -> list[Path]:
     """Walk *all* subdirectories (recursively) and return CSV file paths."""
@@ -92,6 +116,7 @@ def discover_all_csv_files(root: Path) -> list[Path]:
 
 
 # ── step 2: group by UUID, deduplicate ──────────────────────────────
+
 
 def group_and_deduplicate(csv_files: list[Path]) -> dict[str, list[Path]]:
     """
@@ -121,7 +146,9 @@ def group_and_deduplicate(csv_files: list[Path]) -> dict[str, list[Path]]:
         if existing is not None and existing != fpath:
             # Same UUID and filetype found in multiple places — keep whichever we saw first
             if file_hash(existing) != file_hash(fpath):
-                print(f"  WARNING: {fpath.name} differs from {existing.name} (same UUID). Keeping first, deleting duplicate.")
+                print(
+                    f"  WARNING: {fpath.name} differs from {existing.name} (same UUID). Keeping first, deleting duplicate."
+                )
             else:
                 print(f"  Deleting duplicate: {fpath}")
             try:
@@ -151,6 +178,7 @@ def group_and_deduplicate(csv_files: list[Path]) -> dict[str, list[Path]]:
 
 # ── step 3 & 4: read params, move to destination ────────────────────
 
+
 def move_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]:
     """
     Move files to target structure. Returns (moved, skipped, errors).
@@ -173,7 +201,9 @@ def move_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]
 
         pd = read_params(params_path)
         if pd is None:
-            print(f"  WARNING: Could not parse params for UUID {uuid}. Skipping {len(files)} files.")
+            print(
+                f"  WARNING: Could not parse params for UUID {uuid}. Skipping {len(files)} files."
+            )
             errors += len(files)
             continue
 
@@ -213,6 +243,7 @@ def move_to_structure(uuid_files: dict[str, list[Path]]) -> tuple[int, int, int]
 
 
 # ── step 5: verify ──────────────────────────────────────────────────
+
 
 def verify_structure(original_groups: dict[str, list[Path]]) -> bool:
     """Verify all files exist in the new structure."""
@@ -318,6 +349,7 @@ def cleanup_strays(root: Path) -> tuple[int, int]:
 
 # ── main ────────────────────────────────────────────────────────────
 
+
 def main():
     if not RESULTS_DIR.is_dir():
         print(f"ERROR: Results directory not found: {RESULTS_DIR}")
@@ -359,9 +391,7 @@ def main():
         for fn in sorted(filenames):
             print(f"{subindent}{fn}")
 
-    total_new = sum(
-        1 for dirpath, _dirnames, filenames in os.walk(RESULTS_DIR) for fn in filenames
-    )
+    total_new = sum(1 for dirpath, _dirnames, filenames in os.walk(RESULTS_DIR) for fn in filenames)
     print(f"\nTotal files in clean structure: {total_new}")
 
 

@@ -20,7 +20,7 @@ def nan_pearsonr(x: np.ndarray, y: np.ndarray) -> float:
     Calculate the Pearson correlation coefficient between two arrays, ignoring
     NaNs.
     """
-    return float(pd.DataFrame({'x': x, 'y': y}).dropna().corr().iloc[0, 1])
+    return float(pd.DataFrame({"x": x, "y": y}).dropna().corr().iloc[0, 1])
 
 
 def _count_efficient(
@@ -61,9 +61,7 @@ def _count_efficient(
     return nr_efficient, nr_non_nan, prop_efficient
 
 
-def _safe_spearmanr(
-    x: np.ndarray, y: np.ndarray
-) -> tuple[float, bool]:
+def _safe_spearmanr(x: np.ndarray, y: np.ndarray) -> tuple[float, bool]:
     """
     Compute Spearman's rank correlation, handling constant-input cases.
 
@@ -72,13 +70,12 @@ def _safe_spearmanr(
     """
     return _safe_rank_correlation(
         lambda a, b: spearmanr(a, b).statistic,
-        x, y,
+        x,
+        y,
     )
 
 
-def _safe_kendalltau(
-    x: np.ndarray, y: np.ndarray
-) -> tuple[float, bool]:
+def _safe_kendalltau(x: np.ndarray, y: np.ndarray) -> tuple[float, bool]:
     """
     Compute Kendall's tau, handling constant-input cases.
 
@@ -87,13 +84,12 @@ def _safe_kendalltau(
     """
     return _safe_rank_correlation(
         lambda a, b: kendalltau(a, b).statistic,
-        x, y,
+        x,
+        y,
     )
 
 
-def _safe_rank_correlation(
-    corr_func, x: np.ndarray, y: np.ndarray
-) -> tuple[float, bool]:
+def _safe_rank_correlation(corr_func, x: np.ndarray, y: np.ndarray) -> tuple[float, bool]:
     """
     Generic wrapper for rank-correlation functions.
 
@@ -135,9 +131,7 @@ def _safe_rank_correlation(
             return float("nan"), True
 
         # Check if ConstantInputWarning was raised
-        has_warning = any(
-            issubclass(w.category, ConstantInputWarning) for w in caught
-        )
+        has_warning = any(issubclass(w.category, ConstantInputWarning) for w in caught)
         if has_warning:
             return float("nan"), True
 
@@ -187,46 +181,32 @@ def create_evaluation_df(
     for k, v in efficiency_scores_dict.items():
         mae_dict[k] = nan_mae(efficiency_score_by_design, v)
 
-        spearmanr_val, spearmanr_warn = _safe_spearmanr(
-            efficiency_score_by_design, v
-        )
+        spearmanr_val, spearmanr_warn = _safe_spearmanr(efficiency_score_by_design, v)
         spearmanr_dict[k] = spearmanr_val
         spearmanr_warning_dict[k] = spearmanr_warn
 
         pearsonr_dict[k] = nan_pearsonr(efficiency_score_by_design, v)
 
-        kendalltau_val, kendalltau_warn = _safe_kendalltau(
-            efficiency_score_by_design, v
-        )
+        kendalltau_val, kendalltau_warn = _safe_kendalltau(efficiency_score_by_design, v)
         kendalltau_dict[k] = kendalltau_val
         kendalltau_warning_dict[k] = kendalltau_warn
 
-        nr_eff, nr_non_nan, prop_eff = _count_efficient(
-            v, tolerance=efficiency_tolerance
-        )
+        nr_eff, nr_non_nan, prop_eff = _count_efficient(v, tolerance=efficiency_tolerance)
         nr_non_nan_dict[k] = nr_non_nan
         nr_efficient_dict[k] = nr_eff
         prop_efficient_dict[k] = prop_eff
 
     mae_df = pd.DataFrame.from_dict(mae_dict, orient="index", columns=["mae"])
-    spearmanr_df = pd.DataFrame.from_dict(
-        spearmanr_dict, orient="index", columns=["spearmanr"]
-    )
+    spearmanr_df = pd.DataFrame.from_dict(spearmanr_dict, orient="index", columns=["spearmanr"])
     spearmanr_warning_df = pd.DataFrame.from_dict(
         spearmanr_warning_dict, orient="index", columns=["spearmanr_warning"]
     )
-    pearsonr_df = pd.DataFrame.from_dict(
-        pearsonr_dict, orient="index", columns=["pearsonr"]
-    )
-    kendalltau_df = pd.DataFrame.from_dict(
-        kendalltau_dict, orient="index", columns=["kendalltau"]
-    )
+    pearsonr_df = pd.DataFrame.from_dict(pearsonr_dict, orient="index", columns=["pearsonr"])
+    kendalltau_df = pd.DataFrame.from_dict(kendalltau_dict, orient="index", columns=["kendalltau"])
     kendalltau_warning_df = pd.DataFrame.from_dict(
         kendalltau_warning_dict, orient="index", columns=["kendalltau_warning"]
     )
-    nr_non_nan_df = pd.DataFrame.from_dict(
-        nr_non_nan_dict, orient="index", columns=["nr_non_nan"]
-    )
+    nr_non_nan_df = pd.DataFrame.from_dict(nr_non_nan_dict, orient="index", columns=["nr_non_nan"])
     nr_efficient_df = pd.DataFrame.from_dict(
         nr_efficient_dict, orient="index", columns=["nr_efficient"]
     )
@@ -234,9 +214,7 @@ def create_evaluation_df(
         prop_efficient_dict, orient="index", columns=["prop_efficient"]
     )
 
-    dims_df = pd.DataFrame.from_dict(
-        dims_for_embedding_dict, orient="index", columns=["dims"]
-    )
+    dims_df = pd.DataFrame.from_dict(dims_for_embedding_dict, orient="index", columns=["dims"])
 
     evaluation_df = pd.concat(
         [
@@ -253,9 +231,7 @@ def create_evaluation_df(
         ],
         axis=1,
     )
-    evaluation_df = evaluation_df.reset_index().rename(
-        columns={'index': 'dim_reduction_level'}
-    )
+    evaluation_df = evaluation_df.reset_index().rename(columns={"index": "dim_reduction_level"})
     logger.info("Evaluation dataframe created.")
 
     return evaluation_df
@@ -287,13 +263,13 @@ def get_efficiency_summary(
     """
     rows = []
     for name, scores in efficiency_scores_dict.items():
-        nr_eff, nr_non_nan, prop_eff = _count_efficient(
-            scores, tolerance=tolerance
+        nr_eff, nr_non_nan, prop_eff = _count_efficient(scores, tolerance=tolerance)
+        rows.append(
+            {
+                "dim_reduction_level": name,
+                "nr_efficient": nr_eff,
+                "nr_non_nan": nr_non_nan,
+                "prop_efficient": prop_eff,
+            }
         )
-        rows.append({
-            "dim_reduction_level": name,
-            "nr_efficient": nr_eff,
-            "nr_non_nan": nr_non_nan,
-            "prop_efficient": prop_eff,
-        })
     return pd.DataFrame(rows).set_index("dim_reduction_level")

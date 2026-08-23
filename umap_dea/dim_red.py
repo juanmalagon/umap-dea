@@ -22,7 +22,6 @@ def _shift_to_non_negative(values: np.ndarray) -> np.ndarray:
     return values
 
 
-
 def get_dims_for_embedding(x: np.ndarray) -> dict[str, int]:
     """Compute target dimensions for a set of reduced embeddings."""
 
@@ -38,7 +37,6 @@ def get_dims_for_embedding(x: np.ndarray) -> dict[str, int]:
         if v >= x.shape[0]:
             dims_for_embedding_dict[k] = x.shape[0] - 2
     return dims_for_embedding_dict
-
 
 
 def reduce_dims(
@@ -74,7 +72,6 @@ def reduce_dims(
     return u
 
 
-
 def reduce_dimensions_with_pca(
     X: np.ndarray,
     d: int,
@@ -84,7 +81,9 @@ def reduce_dimensions_with_pca(
     """Reduce dimensionality with PCA after standardization."""
 
     if d > X.shape[1]:
-        raise ValueError(f"Cannot reduce to {d} dimensions when input has only {X.shape[1]} features")
+        raise ValueError(
+            f"Cannot reduce to {d} dimensions when input has only {X.shape[1]} features"
+        )
 
     # Step 1: Standardize the data (z-score normalization)
     scaler = StandardScaler()
@@ -118,14 +117,13 @@ def reduce_dimensions_with_pca(
     return X_reduced
 
 
-
 def create_embeddings(
     x: np.ndarray,
     seed: int = 42,
     pca: bool = False,
     umap_n_neighbors: int = 15,
     umap_min_dist: float = 0.1,
-    umap_metric: str = 'euclidean',
+    umap_metric: str = "euclidean",
 ) -> EmbeddingsResult:
     """Create reduced embeddings and include the original input space."""
 

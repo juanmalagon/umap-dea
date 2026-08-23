@@ -22,11 +22,7 @@ def test_build_experiment_configs_covers_each_pca_and_umap_case():
     assert len(configs) == expected_count == 62
     assert {config["orientation"] for config in configs} == {"output"}
     assert sum(config["pca"] for config in configs) == len(EXPERIMENT_CASES)
-    assert all(
-        config["umap_n_neighbors"] < config["n"]
-        for config in configs
-        if not config["pca"]
-    )
+    assert all(config["umap_n_neighbors"] < config["n"] for config in configs if not config["pca"])
 
 
 def test_results_dir_for_matches_existing_result_layout(tmp_path):
@@ -41,4 +37,6 @@ def test_results_dir_for_matches_existing_result_layout(tmp_path):
 
     path = results_dir_for(config, tmp_path)
 
-    assert path == tmp_path / "nr_sim_1000" / "gamma_0p5" / "umap_dea" / "N_010" / "n_0025" / "k_012"
+    assert (
+        path == tmp_path / "nr_sim_1000" / "gamma_0p5" / "umap_dea" / "N_010" / "n_0025" / "k_012"
+    )

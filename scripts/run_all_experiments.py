@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RUN_SIM_PATH = Path(__file__).resolve().parent / "run_sim.py"
 
@@ -34,9 +33,7 @@ EXPERIMENT_CASES = (
 )
 
 
-def build_experiment_configs(
-    base_config: dict[str, Any], orientation: str
-) -> list[dict[str, Any]]:
+def build_experiment_configs(base_config: dict[str, Any], orientation: str) -> list[dict[str, Any]]:
     """Build the PCA and UMAP configurations for the complete study."""
     configs: list[dict[str, Any]] = []
     for n_inputs, n_dmus, neighborhood_values in EXPERIMENT_CASES:
@@ -52,7 +49,8 @@ def build_experiment_configs(
 
         for n_neighbors in neighborhood_values:
             configs.append(
-                base_config | {
+                base_config
+                | {
                     "N": n_inputs,
                     "n": n_dmus,
                     "orientation": orientation,

@@ -30,7 +30,6 @@ from typing import Optional
 
 import pandas as pd
 
-
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_SCRIPT_DIR)
 ANALYSIS_DIR = os.path.join(_PROJECT_ROOT, "analysis")
@@ -53,9 +52,7 @@ GROUP_COLS = ["rts", "gamma", "nr_simulations", "N", "n"]
 PARAM_COLS = ["pca", "dims", "dim_reduction_level", "umap_n_neighbors"]
 
 
-def find_best_params(
-    df: pd.DataFrame, metric: str
-) -> pd.DataFrame:
+def find_best_params(df: pd.DataFrame, metric: str) -> pd.DataFrame:
     """
     For each group defined by (rts, gamma, nr_simulations, N, n), find the row
     with the best value for `metric` and return the corresponding parameters.
@@ -77,9 +74,7 @@ def find_best_params(
     """
     if metric not in METRICS_CONFIG:
         valid = ", ".join(METRICS_CONFIG.keys())
-        raise ValueError(
-            f"Unknown metric: '{metric}'. Must be one of: {valid}"
-        )
+        raise ValueError(f"Unknown metric: '{metric}'. Must be one of: {valid}")
 
     metric_col, lower_is_better = METRICS_CONFIG[metric]
 

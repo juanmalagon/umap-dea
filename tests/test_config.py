@@ -28,9 +28,7 @@ class TestSimulationConfigCreation:
 
     def test_default_values(self):
         """Test that default values are applied correctly."""
-        config = SimulationConfig(
-            N=10, M=1, n=50, alpha_1=0.25, gamma=1.0, sigma_u=0.1
-        )
+        config = SimulationConfig(N=10, M=1, n=50, alpha_1=0.25, gamma=1.0, sigma_u=0.1)
         assert config.rts == "crs"
         assert config.orientation == "input"
         assert config.nr_simulations == 1000
