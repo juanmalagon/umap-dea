@@ -5,17 +5,30 @@ import numpy as np
 import os
 
 
-def load_data():
+def add_algorithm_column(df):
+    """Add the human-readable algorithm label from the PCA flag."""
+    pca = df["pca"]
+    if pca.dtype == object:
+        pca = pca.astype(str).str.strip().str.lower().map({"true": True, "false": False})
+    df = df.copy()
+    df["algorithm"] = pca.map({True: "PCA-DEA", False: "UMAP-DEA"})
+    return df
+
+
+def load_data(path=None):
     """Find and load all_results.csv. Returns the DataFrame."""
-    candidates = [
-        "all_results.csv",
-        os.path.join("..", "all_results.csv"),
-    ]
-    csv_path = None
-    for p in candidates:
-        if os.path.exists(p):
-            csv_path = p
-            break
+    if path is None:
+        candidates = [
+            "all_results.csv",
+            os.path.join("..", "all_results.csv"),
+        ]
+        csv_path = None
+        for p in candidates:
+            if os.path.exists(p):
+                csv_path = p
+                break
+    else:
+        csv_path = path if os.path.exists(path) else None
 
     if csv_path is None:
         raise FileNotFoundError(
@@ -23,7 +36,7 @@ def load_data():
         )
 
     df = pd.read_csv(csv_path)
-    df["algorithm"] = df["pca"].map({True: "PCA-DEA", False: "UMAP-DEA"})
+    df = add_algorithm_column(df)
 
     print(f"Loaded {len(df)} rows from {csv_path}")
     print("Available parameter values:")

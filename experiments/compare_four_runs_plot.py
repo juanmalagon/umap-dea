@@ -18,7 +18,7 @@ METRICS = {
 DIM_ORDER = ["original", "half", "ten_percent", "sqrt", "log"]
 DIM_LABELS = ["N (original)", "N/2", "10%N", "√N", "ln(N)"]
 
-# Colors for the four runs
+# Colors and labels for comparison runs
 RUN_COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
 RUN_LETTERS = ["A", "B", "C", "D"]
 
@@ -64,17 +64,13 @@ def _aggregate(df_sub, levels, mean_col, std_col):
     return agg
 
 
-def _plot_bar_chart(
-    ax, x, width, aggs, show_std, run_labels, labels_ordered, metric_name
-):
+def _plot_bar_chart(ax, x, width, aggs, show_std, run_labels, labels_ordered, metric_name):
     """Draw the grouped bar chart."""
 
-    clean_labels = [re.sub(r"^Run [A-D]: ", "", lbl) for lbl in run_labels]
-
-    offsets = [-1.5, -0.5, +0.5, +1.5]
+    offsets = np.arange(len(aggs)) - (len(aggs) - 1) / 2
     all_bars = []
 
-    for i, (agg, label) in enumerate(zip(aggs, clean_labels)):
+    for i, (agg, label) in enumerate(zip(aggs, run_labels)):
         yerr = agg["metric_std"].values if show_std else None
         bars = ax.bar(
             x + offsets[i] * width,
@@ -118,15 +114,13 @@ def _plot_bar_chart(
     ax.set_xlabel("Dimension Reduction Level", fontsize=22)
     ax.tick_params(axis="y", labelsize=22)
     ax.set_ylabel(metric_name, fontsize=22)
-    title = (
-        f"{clean_labels[0]}  vs  {clean_labels[1]}  vs  {clean_labels[2]}  vs  {clean_labels[3]}"
-    )
+    title = "  vs  ".join(run_labels)
     ax.set_title(title, fontsize=24, fontweight="bold")
     ax.legend(fontsize=22, loc="best")
     ax.grid(True, alpha=0.3, axis="y")
 
 
-def plot_comparison(df, runs, metric_names=None, show_std=True):
+def plot_comparison(df, runs, metric_names=None, show_std=True, output_dir=None, show=True):
     """Generate the four‑run comparison bar chart (one per metric).
 
     Parameters
@@ -146,14 +140,14 @@ def plot_comparison(df, runs, metric_names=None, show_std=True):
     elif metric_names is None:
         metric_names = ["Kendall"]
 
-    if len(runs) != 4:
-        raise ValueError(f"Expected 4 runs, got {len(runs)}")
+    if len(runs) not in (3, 4):
+        raise ValueError(f"Expected 3 or 4 runs, got {len(runs)}")
 
     for single_metric in metric_names:
-        _plot_single_metric(df, runs, single_metric, show_std)
+        _plot_single_metric(df, runs, single_metric, show_std, output_dir, show)
 
 
-def _plot_single_metric(df, runs, metric_name, show_std):
+def _plot_single_metric(df, runs, metric_name, show_std, output_dir=None, show=True):
     """Generate the bar chart for a single metric."""
     mean_col, std_col = METRICS[metric_name]
 
@@ -189,9 +183,13 @@ def _plot_single_metric(df, runs, metric_name, show_std):
             letter = RUN_LETTERS[i]
             label_desc = f"Run {letter} ({algo}, N={N}, n={n}, {rts}, γ={gamma})"
             if algo != "PCA-DEA":
-                run_label = f"Run {letter}: {algo} (k={umap_k})"
+                k_label = run.get("k_label")
+                if k_label:
+                    run_label = f"{algo} k={umap_k} ({k_label})"
+                else:
+                    run_label = f"{algo} k={umap_k}"
             else:
-                run_label = f"Run {letter}: {algo}"
+                run_label = algo
             run_labels.append(run_label)
 
             mask_base = (
@@ -204,9 +202,7 @@ def _plot_single_metric(df, runs, metric_name, show_std):
             masks_base.append(mask_base)
 
             mask_full = (
-                mask_base
-                & (df["umap_n_neighbors"] == umap_k)
-                & (df["nr_simulations"] == nr_sim)
+                mask_base & (df["umap_n_neighbors"] == umap_k) & (df["nr_simulations"] == nr_sim)
             )
             masks_full.append(mask_full)
 
@@ -233,13 +229,9 @@ def _plot_single_metric(df, runs, metric_name, show_std):
         dfs = [df[mask].copy() for mask in masks_full]
 
         # --- Align levels across runs ---
-        levels_present = set.intersection(
-            *[set(d["dim_reduction_level"].unique()) for d in dfs]
-        )
+        levels_present = set.intersection(*[set(d["dim_reduction_level"].unique()) for d in dfs])
         dims_map = dfs[0].groupby("dim_reduction_level")["dims"].first().to_dict()
-        levels_ordered = sorted(
-            levels_present, key=lambda l: dims_map.get(l, 0), reverse=True
-        )
+        levels_ordered = sorted(levels_present, key=lambda l: dims_map.get(l, 0), reverse=True)
         labels_ordered = []
         for l in levels_ordered:
             base_label = DIM_LABELS[DIM_ORDER.index(l)]
@@ -287,12 +279,13 @@ def _plot_single_metric(df, runs, metric_name, show_std):
             dim_tag_parts.append(f"n{runs[0]['n']}")
         dim_tag = "_".join(dim_tag_parts)
 
-        output_dir = os.path.join(os.path.dirname(__file__), "plots")
+        if output_dir is None:
+            output_dir = os.path.join(os.path.dirname(__file__), "plots")
         os.makedirs(output_dir, exist_ok=True)
 
         # --- Create the bar chart ---
         x = np.arange(len(levels_ordered))
-        width = 0.20
+        width = min(0.24, 0.8 / len(runs))
         fig_bar, ax_bar = plt.subplots(figsize=(18, 12))
         fig_bar.suptitle(
             f"N = {runs[0]['N']}, n = {runs[0]['n']}, {metric_name}",
@@ -312,16 +305,14 @@ def _plot_single_metric(df, runs, metric_name, show_std):
             metric_name,
         )
 
-        bar_filename = (
-            f"{metric_name}__bar__"
-            f"A_{shorts[0]}_B_{shorts[1]}_C_{shorts[2]}_D_{shorts[3]}__"
-            f"{dim_tag}.png"
-        )
+        run_tag = "_".join(f"{RUN_LETTERS[i]}_{short}" for i, short in enumerate(shorts))
+        bar_filename = f"{metric_name}__bar__{run_tag}__{dim_tag}.png"
         path = os.path.join(output_dir, bar_filename)
         fig_bar.tight_layout()
         fig_bar.savefig(path, dpi=300, bbox_inches="tight")
         print(f"💾 Saved: {path}")
-        plt.show()
+        if show:
+            plt.show()
         plt.close(fig_bar)
 
     finally:

@@ -1,6 +1,7 @@
 from scripts.run_all_experiments import (
     EXPERIMENT_CASES,
     build_experiment_configs,
+    k_options_for_n,
     results_dir_for,
 )
 
@@ -40,3 +41,21 @@ def test_results_dir_for_matches_existing_result_layout(tmp_path):
     assert (
         path == tmp_path / "nr_sim_1000" / "gamma_0p5" / "umap_dea" / "N_010" / "n_0025" / "k_012"
     )
+
+
+def test_k_options_use_log2_sqrt_and_half_with_duplicates_collapsed():
+    assert k_options_for_n(10) == [
+        (3, "log2(n) = sqrt(n)"),
+        (5, "n/2"),
+    ]
+    assert k_options_for_n(500) == [
+        (8, "log2(n)"),
+        (22, "sqrt(n)"),
+        (250, "n/2"),
+    ]
+
+
+def test_k_options_match_historical_experiment_matrix():
+    for _n_inputs, n_dmus, historical_k_values in EXPERIMENT_CASES:
+        derived_k_values = tuple(k for k, _label in k_options_for_n(n_dmus))
+        assert derived_k_values == historical_k_values

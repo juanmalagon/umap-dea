@@ -187,7 +187,6 @@ Without `--param-grid`, the default grid is `N âˆˆ [20, 50, 100, 200]` and `n âˆ
 
 Results are placed in `results_grid_search/`.
 
-
 ## Complete orientation study
 
 To reproduce the complete experiment matrix without repeatedly editing the
@@ -209,6 +208,24 @@ matrix contains 62 simulation batches per orientation. Use `--verbose` to
 show the subprocess logs. Pass `--results-root <path>` only when you
 intentionally want a different destination.
 
+After the simulations finish, aggregate the summaries and generate all
+comparison plots with:
+
+```bash
+python scripts/postprocess_experiments.py --orientation input
+python scripts/postprocess_experiments.py --orientation output
+```
+
+The post-processing command reads the recomputed orientation-specific result
+tree, writes `all_results_input_oriented_recomputed.csv` or
+`all_results_output_oriented_recomputed.csv`, and saves plots under
+`experiments/plots/input_oriented_recomputed/` or
+`experiments/plots/output_oriented_recomputed/`. For each `(N, n)` case, the
+plot compares PCA-DEA with the available UMAP-DEA neighborhood rules:
+`k = floor(log2(n))`, `k = floor(sqrt(n))`, and `k = floor(n/2)`. When two
+rules produce the same value, the plot uses a 3-run comparison and the legend
+shows the collapsed rule explicitly, for example
+`UMAP-DEA k=3 (log2(n) = sqrt(n))`.
 
 ## Results organization
 
@@ -309,6 +326,12 @@ This happens, for example, when a large fraction of DMUs lands on the efficiency
 - Output-oriented DEA returns an output expansion factor $\phi \geq 1$.
    The simulation evaluates it against the reciprocal DGP reference
    $\tilde{y} / y = 1 / e$.
+- MAE values are only comparable within a single orientation because the two
+   orientations use reciprocal score scales. Spearman, Pearson, and Kendall
+   correlations should be positive when the estimate and DGP reference are on
+   the matching scale. Output-oriented CSV files generated before this
+   reciprocal-reference behavior was introduced must be regenerated; their
+   correlations compare $\phi$ to $e$ and therefore have reversed rank signs.
 
 ## Generating LaTeX tables
 

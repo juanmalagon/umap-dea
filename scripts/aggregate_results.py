@@ -5,6 +5,7 @@ folder into a single all_results.csv in the project root.
 Each pair is matched by UUID and cross-joined (1 params row × N summary rows).
 """
 
+import argparse
 import re
 from pathlib import Path
 
@@ -95,20 +96,20 @@ def read_params(path: Path) -> dict:
     return row
 
 
-def main() -> None:
-    if not RESULTS_DIR.is_dir():
-        print(f"ERROR: Results directory not found: {RESULTS_DIR}")
-        return
+def aggregate_results(
+    results_dir: Path = RESULTS_DIR, output_path: Path = OUTPUT_PATH
+) -> pd.DataFrame:
+    """Aggregate params-summary pairs into a CSV and return the dataframe."""
+    if not results_dir.is_dir():
+        raise FileNotFoundError(f"Results directory not found: {results_dir}")
 
-    pairs = find_pairs(RESULTS_DIR)
+    pairs = find_pairs(results_dir)
     print(f"Found {len(pairs)} complete param-summary pairs.")
 
     if not pairs:
-        print("No pairs found. Exiting.")
-        return
+        raise ValueError(f"No complete param-summary pairs found under {results_dir}")
 
     all_rows: list[dict] = []
-    missing_cols: set[str] = set()
     skipped = 0
 
     for uuid, files in sorted(pairs.items()):
@@ -134,8 +135,7 @@ def main() -> None:
             skipped += 1
 
     if not all_rows:
-        print("No rows collected. Exiting.")
-        return
+        raise ValueError("No rows collected from complete param-summary pairs")
 
     result_df = pd.DataFrame(all_rows)
 
@@ -149,11 +149,21 @@ def main() -> None:
 
     result_df = result_df[final_cols]
 
-    result_df.to_csv(OUTPUT_PATH, index=False)
-    print(f"\nWrote {len(result_df)} rows × {len(final_cols)} columns to {OUTPUT_PATH}")
+    result_df.to_csv(output_path, index=False)
+    print(f"\nWrote {len(result_df)} rows × {len(final_cols)} columns to {output_path}")
     if skipped:
         print(f"Skipped {skipped} pair(s) due to errors.")
     print("Done.")
+    return result_df
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Aggregate UMAP-DEA result summaries.")
+    parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
+    parser.add_argument("--output", type=Path, default=OUTPUT_PATH)
+    args = parser.parse_args(argv)
+
+    aggregate_results(args.results_dir, args.output)
 
 
 if __name__ == "__main__":

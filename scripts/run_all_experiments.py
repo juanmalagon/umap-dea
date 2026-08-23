@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -31,6 +32,21 @@ EXPERIMENT_CASES = (
     (100, 400, (8, 20, 200)),
     (100, 1000, (9, 31, 500)),
 )
+
+K_RULES = (
+    ("log2(n)", lambda n: int(math.log2(n))),
+    ("sqrt(n)", lambda n: int(math.sqrt(n))),
+    ("n/2", lambda n: int(n / 2)),
+)
+
+
+def k_options_for_n(n_dmus: int) -> list[tuple[int, str]]:
+    """Return unique UMAP k values with explicit rule labels for a sample size."""
+    grouped: dict[int, list[str]] = {}
+    for label, func in K_RULES:
+        k_value = func(n_dmus)
+        grouped.setdefault(k_value, []).append(label)
+    return [(k_value, " = ".join(labels)) for k_value, labels in grouped.items()]
 
 
 def build_experiment_configs(base_config: dict[str, Any], orientation: str) -> list[dict[str, Any]]:
