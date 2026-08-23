@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from scipy.stats import ConstantInputWarning
+from scripts.run_sim import _design_score_for_orientation
 from umap_dea import eval
 
 
@@ -36,6 +37,20 @@ class TestNanMAE:
         mae = eval.nan_mae(x, y)
 
         assert mae == pytest.approx(0.0)
+
+
+class TestDesignScoreForOrientation:
+    """Ensure DGP references use the same direction as DEA scores."""
+
+    def test_output_reference_is_the_input_efficiency_reciprocal(self):
+        y = np.array([[0.5], [0.8], [1.0]])
+        y_tilde = np.ones_like(y)
+
+        input_score = _design_score_for_orientation(y, y_tilde, "input")
+        output_score = _design_score_for_orientation(y, y_tilde, "output")
+
+        np.testing.assert_allclose(input_score, [0.5, 0.8, 1.0])
+        np.testing.assert_allclose(output_score, [2.0, 1.25, 1.0])
 
 
 class TestNanPearsonr:
