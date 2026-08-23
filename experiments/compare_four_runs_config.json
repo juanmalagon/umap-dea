@@ -4,8 +4,8 @@
         "gamma": 0.5,
         "nr_simulations": 1000,
         "algo": "UMAP-DEA",
-        "N": 100,
-        "n": 100,
+        "N": 50,
+        "n": 500,
         "umap_n_neighbors": 3
     },
     "run_a": {
@@ -23,7 +23,7 @@
         "n": "global",
         "rts": "global",
         "gamma": "global",
-        "umap_n_neighbors": 6,
+        "umap_n_neighbors": 8,
         "nr_simulations": "global"
     },
     "run_c": {
@@ -32,7 +32,7 @@
         "n": "global",
         "rts": "global",
         "gamma": "global",
-        "umap_n_neighbors": 10,
+        "umap_n_neighbors": 22,
         "nr_simulations": "global"
     },
     "run_d": {
@@ -41,7 +41,7 @@
         "n": "global",
         "rts": "global",
         "gamma": "global",
-        "umap_n_neighbors": 50,
+        "umap_n_neighbors": 250,
         "nr_simulations": "global"
     },
     "metric_names": ["Kendall", "MAE", "Pearson", "Spearman"],
