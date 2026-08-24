@@ -223,9 +223,10 @@ tree, writes `all_results_input_oriented_recomputed.csv` or
 `experiments/plots/output_oriented_recomputed/`. For each `(N, n)` case, the
 plot compares PCA-DEA with the available UMAP-DEA neighborhood rules:
 `k = floor(log2(n))`, `k = floor(sqrt(n))`, and `k = floor(n/2)`. When two
-rules produce the same value, the plot uses a 3-run comparison and the legend
-shows the collapsed rule explicitly, for example
-`UMAP-DEA k=3 (log2(n) = sqrt(n))`.
+rules produce the same value, the plot uses a 3-run comparison. The plot
+title states the three k rules, the x-axis writes the dimensionality rules
+with their integer parts, and the legend stays concise, for example
+`UMAP-DEA k=3`.
 
 ## Results organization
 
