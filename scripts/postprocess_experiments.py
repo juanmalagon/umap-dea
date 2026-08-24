@@ -68,7 +68,18 @@ def generate_all_plots(
     allow_missing: bool,
 ) -> None:
     """Generate comparison plots for every configured (N, n) case."""
+    skipped_cases: list[tuple[int, int]] = []
     for n_inputs, n_dmus, _neighborhood_values in EXPERIMENT_CASES:
+        case_mask = (df["N"] == n_inputs) & (df["n"] == n_dmus)
+        if case_mask.sum() == 0:
+            skipped_cases.append((n_inputs, n_dmus))
+            logging.warning(
+                "Skipping N=%s, n=%s because no matching rows exist in the aggregate data",
+                n_inputs,
+                n_dmus,
+            )
+            continue
+
         runs = comparison_runs_for_case(base_config, n_inputs, n_dmus)
         case_dir = plots_root / f"N_{n_inputs:03d}" / f"n_{n_dmus:04d}"
         case_dir.mkdir(parents=True, exist_ok=True)
@@ -88,6 +99,10 @@ def generate_all_plots(
             logging.warning(
                 "Skipping N=%s, n=%s because matching data is missing", n_inputs, n_dmus
             )
+
+    if skipped_cases:
+        skipped = ", ".join(f"N={n_inputs}, n={n_dmus}" for n_inputs, n_dmus in skipped_cases)
+        logging.warning("Skipped %s completely missing case(s): %s", len(skipped_cases), skipped)
 
 
 def main(argv: list[str] | None = None) -> None:

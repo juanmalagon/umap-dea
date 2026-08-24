@@ -7,10 +7,19 @@ import os
 
 def add_algorithm_column(df):
     """Add the human-readable algorithm label from the PCA flag."""
-    pca = df["pca"]
-    if pca.dtype == object:
-        pca = pca.astype(str).str.strip().str.lower().map({"true": True, "false": False})
     df = df.copy()
+    pca = (
+        df["pca"]
+        .astype(str)
+        .str.strip()
+        .str.lower()
+        .map(
+            {
+                "true": True,
+                "false": False,
+            }
+        )
+    )
     df["algorithm"] = pca.map({True: "PCA-DEA", False: "UMAP-DEA"})
     return df
 

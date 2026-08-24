@@ -1,4 +1,4 @@
-from scripts.postprocess_experiments import comparison_runs_for_case
+from scripts.postprocess_experiments import comparison_runs_for_case, generate_all_plots
 
 
 def _summary_rows_for_run(run):
@@ -105,3 +105,41 @@ def test_three_run_collapsed_case_plot_saves_file(tmp_path):
     )
 
     assert len(list(tmp_path.glob("Kendall__bar__*.png"))) == 1
+
+
+def test_algorithm_column_handles_string_and_boolean_pca_values():
+    import pandas as pd
+
+    from experiments.compare_four_runs_data import add_algorithm_column
+
+    df = pd.DataFrame({"pca": [True, False, "True", "False", " true ", " false "]})
+
+    result = add_algorithm_column(df)
+
+    assert result["algorithm"].tolist() == [
+        "PCA-DEA",
+        "UMAP-DEA",
+        "PCA-DEA",
+        "UMAP-DEA",
+        "PCA-DEA",
+        "UMAP-DEA",
+    ]
+
+
+def test_generate_all_plots_skips_completely_missing_cases(tmp_path):
+    import pandas as pd
+
+    base_config = {"rts": "vrs", "gamma": 0.5, "nr_simulations": 1000}
+    runs = comparison_runs_for_case(base_config, n_inputs=10, n_dmus=10)
+    df = pd.DataFrame(row for run in runs for row in _summary_rows_for_run(run))
+
+    generate_all_plots(
+        df=df,
+        base_config=base_config,
+        plots_root=tmp_path,
+        metric_names=["Kendall"],
+        show_std=False,
+        allow_missing=False,
+    )
+
+    assert len(list(tmp_path.rglob("Kendall__bar__*.png"))) == 1
