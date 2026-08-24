@@ -180,6 +180,8 @@ cython_debug/
 results/
 results_grid_search/
 results_grid_search/temp_config_*.json
+results_output_oriented_recomputed/
+results_input_oriented_recomputed/
 tex/
 analysis/
 # all_results.csv

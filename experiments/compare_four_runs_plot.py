@@ -16,7 +16,13 @@ METRICS = {
 
 # Dimension order
 DIM_ORDER = ["original", "half", "ten_percent", "sqrt", "log"]
-DIM_LABELS = ["N (original)", "N/2", "10%N", "√N", "ln(N)"]
+DIM_LABELS = [
+    "N (original)",
+    r"$\lfloor N/2 \rfloor$",
+    r"$\lfloor 0.1N \rfloor$",
+    r"$\lfloor \sqrt{N} \rfloor$",
+    r"$\lfloor \ln(N) \rfloor$",
+]
 
 # Colors and labels for comparison runs
 RUN_COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
@@ -183,11 +189,7 @@ def _plot_single_metric(df, runs, metric_name, show_std, output_dir=None, show=T
             letter = RUN_LETTERS[i]
             label_desc = f"Run {letter} ({algo}, N={N}, n={n}, {rts}, γ={gamma})"
             if algo != "PCA-DEA":
-                k_label = run.get("k_label")
-                if k_label:
-                    run_label = f"{algo} k={umap_k} ({k_label})"
-                else:
-                    run_label = f"{algo} k={umap_k}"
+                run_label = f"{algo} k={umap_k}"
             else:
                 run_label = algo
             run_labels.append(run_label)
@@ -288,7 +290,9 @@ def _plot_single_metric(df, runs, metric_name, show_std, output_dir=None, show=T
         width = min(0.24, 0.8 / len(runs))
         fig_bar, ax_bar = plt.subplots(figsize=(18, 12))
         fig_bar.suptitle(
-            f"N = {runs[0]['N']}, n = {runs[0]['n']}, {metric_name}",
+            f"N = {runs[0]['N']}, n = {runs[0]['n']}, {metric_name}\n"
+            r"UMAP k rules: $\lfloor\log_2(n)\rfloor$, "
+            r"$\lfloor\sqrt{n}\rfloor$, $\lfloor n/2\rfloor$",
             fontsize=22,
             fontweight="bold",
             y=0.98,
